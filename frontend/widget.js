@@ -16,7 +16,7 @@
   // Inject scoped CSS
   // ------------------------------------------------------------------
   const STYLE = `
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
     #tuktuk-widget-root *,
     #tuktuk-widget-root *::before,
@@ -24,31 +24,30 @@
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Montserrat', sans-serif;
     }
 
     #tuktuk-widget-root {
-      --tw-orange:      #F97415;
-      --tw-orange-dark: #ea6a0e;
-      --tw-orange-pale: #fff4ed;
-      --tw-orange-light:#f9b486;
+      --tw-orange:      #c8963e;
+      --tw-orange-dark: #b07e2a;
+      --tw-bg-dark:     #0a0a0a;
+      --tw-bg-mid:      #141414;
+      --tw-bg-light:    #1e1e1e;
+      --tw-bg-input:    #111111;
       --tw-white:       #ffffff;
-      --tw-off-white:   #fafaf9;
-      --tw-gray-100:    #f5f5f4;
-      --tw-gray-200:    #e7e5e4;
-      --tw-gray-400:    #a8a29e;
-      --tw-gray-600:    #78716c;
-      --tw-gray-900:    #1c1917;
-      --tw-radius-sm:   8px;
-      --tw-radius-md:   16px;
-      --tw-radius-lg:   24px;
-      --tw-shadow-sm:   0 1px 3px rgba(0,0,0,0.08);
-      --tw-shadow-md:   0 4px 16px rgba(0,0,0,0.10);
+      --tw-text-muted:  rgba(255,255,255,0.45);
+      --tw-text-dim:    rgba(255,255,255,0.65);
+      --tw-border:      rgba(255,255,255,0.1);
+      --tw-border-focus:rgba(200,150,62,0.6);
+      --tw-radius-sm:   4px;
+      --tw-radius-md:   8px;
+      --tw-shadow-md:   0 8px 32px rgba(0,0,0,0.6);
     }
 
     #tuktuk-widget-root .tw-widget {
-      background: var(--tw-white);
-      border-radius: var(--tw-radius-lg);
+      background: var(--tw-bg-dark);
+      border: 1px solid var(--tw-border);
+      border-radius: var(--tw-radius-md);
       box-shadow: var(--tw-shadow-md);
       overflow: hidden;
       display: flex;
@@ -60,7 +59,8 @@
 
     /* Header */
     #tuktuk-widget-root .tw-header {
-      background: var(--tw-orange);
+      background: var(--tw-bg-mid);
+      border-bottom: 1px solid var(--tw-border);
       padding: 1rem 1.25rem;
       display: flex;
       align-items: center;
@@ -68,54 +68,65 @@
       flex-shrink: 0;
     }
     #tuktuk-widget-root .tw-avatar {
-      width: 38px; height: 38px;
+      width: 36px; height: 36px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.2);
+      background: var(--tw-orange);
       display: flex; align-items: center; justify-content: center;
-      font-size: 1.1rem; flex-shrink: 0;
+      font-size: 1rem; flex-shrink: 0;
     }
     #tuktuk-widget-root .tw-header-info { flex: 1; }
     #tuktuk-widget-root .tw-header-name {
-      font-weight: 700; color: #fff; font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--tw-white);
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
     #tuktuk-widget-root .tw-header-status {
-      font-size: 0.75rem; color: rgba(255,255,255,0.85);
+      font-size: 0.7rem; color: var(--tw-text-muted);
       display: flex; align-items: center; gap: 0.35rem;
+      margin-top: 0.2rem;
     }
     #tuktuk-widget-root .tw-status-dot {
-      width: 7px; height: 7px; border-radius: 50%;
+      width: 6px; height: 6px; border-radius: 50%;
       background: #4ade80; display: inline-block;
     }
     #tuktuk-widget-root .tw-clear-btn {
       margin-left: auto;
-      background: rgba(255,255,255,0.18);
-      border: 1px solid rgba(255,255,255,0.35);
-      color: white;
-      border-radius: 20px;
+      background: transparent;
+      border: 1px solid var(--tw-border);
+      color: var(--tw-text-muted);
+      border-radius: 2px;
       padding: 0.3rem 0.75rem;
-      font-size: 0.75rem; font-weight: 600;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
       cursor: pointer;
-      transition: background 0.15s;
+      transition: border-color 0.15s, color 0.15s;
       white-space: nowrap;
     }
-    #tuktuk-widget-root .tw-clear-btn:hover { background: rgba(255,255,255,0.28); }
+    #tuktuk-widget-root .tw-clear-btn:hover {
+      border-color: var(--tw-orange);
+      color: var(--tw-orange);
+    }
 
     /* Messages */
     #tuktuk-widget-root .tw-messages {
       flex: 1; overflow-y: auto;
       padding: 1.25rem;
       display: flex; flex-direction: column; gap: 1rem;
-      background: var(--tw-off-white);
+      background: var(--tw-bg-dark);
       scroll-behavior: smooth;
     }
-    #tuktuk-widget-root .tw-messages::-webkit-scrollbar { width: 5px; }
+    #tuktuk-widget-root .tw-messages::-webkit-scrollbar { width: 4px; }
     #tuktuk-widget-root .tw-messages::-webkit-scrollbar-track { background: transparent; }
     #tuktuk-widget-root .tw-messages::-webkit-scrollbar-thumb {
-      background: var(--tw-gray-200); border-radius: 10px;
+      background: var(--tw-border); border-radius: 10px;
     }
 
     #tuktuk-widget-root .tw-msg {
-      display: flex; flex-direction: column; max-width: 78%;
+      display: flex; flex-direction: column; max-width: 80%;
       animation: twFadeIn 0.2s ease;
     }
     @keyframes twFadeIn {
@@ -126,19 +137,19 @@
     #tuktuk-widget-root .tw-msg.bot  { align-self: flex-start; align-items: flex-start; }
 
     #tuktuk-widget-root .tw-bubble {
-      padding: 0.7rem 1rem;
-      border-radius: var(--tw-radius-md);
-      font-size: 0.9rem; line-height: 1.55;
+      padding: 0.75rem 1rem;
+      border-radius: var(--tw-radius-sm);
+      font-size: 0.875rem; line-height: 1.6;
       word-break: break-word;
     }
     #tuktuk-widget-root .tw-msg.user .tw-bubble {
-      background: var(--tw-orange); color: #fff;
-      border-bottom-right-radius: var(--tw-radius-sm);
+      background: var(--tw-orange);
+      color: var(--tw-white);
     }
     #tuktuk-widget-root .tw-msg.bot .tw-bubble {
-      background: var(--tw-white); color: var(--tw-gray-900);
-      border-bottom-left-radius: var(--tw-radius-sm);
-      box-shadow: var(--tw-shadow-sm);
+      background: var(--tw-bg-light);
+      color: var(--tw-white);
+      border: 1px solid var(--tw-border);
     }
     #tuktuk-widget-root .tw-msg.bot .tw-bubble a {
       color: var(--tw-orange); font-weight: 600;
@@ -147,8 +158,9 @@
     #tuktuk-widget-root .tw-msg.bot .tw-bubble a:hover { color: var(--tw-orange-dark); }
 
     #tuktuk-widget-root .tw-meta {
-      font-size: 0.7rem; color: var(--tw-gray-400);
-      margin-top: 0.25rem; padding: 0 0.25rem;
+      font-size: 0.65rem; color: var(--tw-text-muted);
+      margin-top: 0.3rem; padding: 0 0.25rem;
+      letter-spacing: 0.03em;
     }
 
     /* Images */
@@ -159,18 +171,18 @@
       max-width: 220px; max-height: 160px;
       border-radius: var(--tw-radius-sm);
       object-fit: cover; cursor: pointer;
-      transition: transform 0.15s, box-shadow 0.15s;
-      box-shadow: var(--tw-shadow-sm);
+      transition: opacity 0.15s;
+      border: 1px solid var(--tw-border);
     }
-    #tuktuk-widget-root .tw-img:hover { transform: scale(1.03); box-shadow: var(--tw-shadow-md); }
+    #tuktuk-widget-root .tw-img:hover { opacity: 0.85; }
 
     /* Typing dots */
     #tuktuk-widget-root .tw-typing .tw-bubble {
-      display: flex; align-items: center; gap: 4px;
+      display: flex; align-items: center; gap: 5px;
     }
     #tuktuk-widget-root .tw-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--tw-gray-400);
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--tw-text-muted);
       animation: twBounce 1.2s infinite;
     }
     #tuktuk-widget-root .tw-dot:nth-child(2) { animation-delay: 0.2s; }
@@ -182,97 +194,98 @@
 
     /* Welcome */
     #tuktuk-widget-root .tw-welcome {
-      text-align: center; padding: 1.5rem 1rem; color: var(--tw-gray-600);
+      text-align: center; padding: 2rem 1rem; color: var(--tw-text-dim);
     }
-    #tuktuk-widget-root .tw-wave { font-size: 2rem; margin-bottom: 0.5rem; }
-    #tuktuk-widget-root .tw-welcome p { font-size: 0.875rem; line-height: 1.5; }
-
-    /* Suggestions */
-    #tuktuk-widget-root .tw-suggestions {
-      display: flex; flex-wrap: wrap; gap: 0.5rem;
-      margin-top: 1rem; justify-content: center;
+    #tuktuk-widget-root .tw-wave { font-size: 1.8rem; margin-bottom: 0.75rem; }
+    #tuktuk-widget-root .tw-welcome-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--tw-white);
+      margin-bottom: 0.5rem;
     }
-    #tuktuk-widget-root .tw-chip {
-      background: var(--tw-orange-pale);
-      border: 1px solid var(--tw-orange-light);
-      color: var(--tw-orange-dark);
-      border-radius: 100px;
-      padding: 0.4rem 0.85rem;
-      font-size: 0.78rem; font-weight: 500;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    #tuktuk-widget-root .tw-chip:hover {
-      background: var(--tw-orange-light); border-color: var(--tw-orange);
+    #tuktuk-widget-root .tw-welcome p {
+      font-size: 0.82rem; line-height: 1.6;
+      color: var(--tw-text-dim);
     }
 
     /* Input */
     #tuktuk-widget-root .tw-input-area {
-      padding: 1rem; background: var(--tw-white);
-      border-top: 1px solid var(--tw-gray-200); flex-shrink: 0;
+      padding: 1rem 1.25rem 1rem;
+      background: var(--tw-bg-mid);
+      border-top: 1px solid var(--tw-border);
+      flex-shrink: 0;
     }
     #tuktuk-widget-root .tw-input-row {
-      display: flex; gap: 0.6rem; align-items: flex-end;
+      display: flex; gap: 0; align-items: flex-end;
+      border-bottom: 1px solid var(--tw-border);
+      transition: border-color 0.2s;
+    }
+    #tuktuk-widget-root .tw-input-row:focus-within {
+      border-bottom-color: var(--tw-orange);
     }
     #tuktuk-widget-root .tw-textarea {
       flex: 1;
-      border: 1.5px solid var(--tw-gray-200);
-      border-radius: var(--tw-radius-md);
-      padding: 0.65rem 1rem;
-      font-size: 0.9rem; color: var(--tw-gray-900);
-      resize: none; min-height: 44px; max-height: 120px;
+      border: none;
+      background: transparent;
+      padding: 0.65rem 0.5rem 0.65rem 0;
+      font-size: 0.875rem;
+      color: var(--tw-white);
+      resize: none;
+      min-height: 44px;
+      max-height: 120px;
       line-height: 1.5;
-      transition: border-color 0.15s, box-shadow 0.15s;
-      background: var(--tw-off-white);
       overflow-y: auto;
     }
-    #tuktuk-widget-root .tw-textarea:focus {
-      outline: none;
-      border-color: var(--tw-orange);
-      box-shadow: 0 0 0 3px rgba(249,116,21,0.12);
-      background: var(--tw-white);
-    }
-    #tuktuk-widget-root .tw-textarea::placeholder { color: var(--tw-gray-400); }
+    #tuktuk-widget-root .tw-textarea:focus { outline: none; }
+    #tuktuk-widget-root .tw-textarea::placeholder { color: var(--tw-text-muted); }
 
     #tuktuk-widget-root .tw-send {
-      width: 44px; height: 44px; border-radius: 50%;
-      background: var(--tw-orange); border: none;
+      width: 36px; height: 36px;
+      background: transparent;
+      border: none;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
-      transition: background 0.15s, transform 0.1s;
+      transition: opacity 0.15s;
+      padding-bottom: 0.5rem;
     }
-    #tuktuk-widget-root .tw-send:hover:not(:disabled) { background: var(--tw-orange-dark); }
-    #tuktuk-widget-root .tw-send:active:not(:disabled) { transform: scale(0.94); }
-    #tuktuk-widget-root .tw-send:disabled { opacity: 0.5; cursor: not-allowed; }
-    #tuktuk-widget-root .tw-send svg { width: 18px; height: 18px; fill: white; }
+    #tuktuk-widget-root .tw-send:hover:not(:disabled) { opacity: 0.7; }
+    #tuktuk-widget-root .tw-send:disabled { opacity: 0.25; cursor: not-allowed; }
+    #tuktuk-widget-root .tw-send svg { width: 18px; height: 18px; fill: var(--tw-orange); }
 
     #tuktuk-widget-root .tw-footer {
-      font-size: 0.7rem; color: var(--tw-gray-400);
-      text-align: center; margin-top: 0.5rem;
+      font-size: 0.62rem;
+      color: var(--tw-text-muted);
+      text-align: center;
+      margin-top: 0.6rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
 
     /* Lightbox */
     #tuktuk-lightbox {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.85); z-index: 99999;
+      background: rgba(0,0,0,0.92); z-index: 99999;
       align-items: center; justify-content: center;
     }
     #tuktuk-lightbox.open { display: flex; }
     #tuktuk-lightbox img {
       max-width: 90vw; max-height: 90vh;
-      border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      border-radius: 4px; box-shadow: 0 20px 60px rgba(0,0,0,0.8);
     }
     #tuktuk-lightbox .tw-lb-close {
       position: absolute; top: 1.5rem; right: 1.5rem;
-      background: rgba(255,255,255,0.15); border: none; color: white;
-      width: 40px; height: 40px; border-radius: 50%; font-size: 1.2rem;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+      color: white; width: 40px; height: 40px; border-radius: 2px;
+      font-size: 1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
     }
-    #tuktuk-lightbox .tw-lb-close:hover { background: rgba(255,255,255,0.25); }
+    #tuktuk-lightbox .tw-lb-close:hover { background: rgba(255,255,255,0.15); }
 
     @media (max-width: 600px) {
-      #tuktuk-widget-root .tw-widget { height: 480px; border-radius: var(--tw-radius-md); }
+      #tuktuk-widget-root .tw-widget { height: 480px; border-radius: var(--tw-radius-sm); }
       #tuktuk-widget-root .tw-msg { max-width: 90%; }
     }
   `;
@@ -358,28 +371,15 @@
   // ------------------------------------------------------------------
   // Welcome screen
   // ------------------------------------------------------------------
-  const SUGGESTIONS = [
-    'What tours do you offer?',
-    'How do I book a tour?',
-    'How long are the tours?',
-    'Do you offer private tours?',
-    "What's included in the price?",
-  ];
-
   function renderWelcome() {
     const el = document.createElement('div');
     el.className = 'tw-welcome';
     el.id = 'twWelcome';
     el.innerHTML = `
       <div class="tw-wave">🛺</div>
-      <p>Hello! I'm your Lisbon tour guide assistant.<br>Ask me anything about our tuk-tuk experiences.</p>
-      <div class="tw-suggestions">
-        ${SUGGESTIONS.map(q => `<button class="tw-chip">${q}</button>`).join('')}
-      </div>
+      <div class="tw-welcome-title">I Took a Tuk Tuk</div>
+      <p>Hello! I'm your Lisbon tour guide assistant.<br>Ask me anything about our tours, prices or availability.</p>
     `;
-    el.querySelectorAll('.tw-chip').forEach(btn => {
-      btn.addEventListener('click', () => { inputEl.value = btn.textContent; sendMessage(); });
-    });
     messagesEl.appendChild(el);
   }
 
