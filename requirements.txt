@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+google-genai
+pinecone
+openai
+python-dotenv
+httpx
+beautifulsoup4
+Pillow
+python-multipart
+lxml
+python-docx
+google-cloud-storage

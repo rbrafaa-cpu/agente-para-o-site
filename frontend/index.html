@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ask a Question — I Took a Tuk Tuk</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Page header (matches itookatuktuk.com nav feel) -->
+  <header class="page-header">
+    <div>
+      <div class="logo-text">I Took a Tuk Tuk</div>
+      <div class="logo-sub">Lisbon Tuk Tuk Tours</div>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="page-content">
+
+    <!-- Section heading -->
+    <p class="section-eyebrow">Ask anything</p>
+    <h1 class="section-title">Your Lisbon adventure<br>starts with a question</h1>
+    <p class="section-subtitle">
+      Our AI assistant knows everything about our tours, pricing, and experiences.
+      Ask away — or scroll down to send us a message directly.
+    </p>
+
+    <!-- ================================================================
+         CHAT WIDGET
+         ================================================================ -->
+    <div class="chat-widget">
+
+      <!-- Header bar -->
+      <div class="chat-header">
+        <div class="chat-avatar">🛺</div>
+        <div class="chat-header-info">
+          <div class="chat-header-name">Tuk Tuk Assistant</div>
+          <div class="chat-header-status">
+            <span class="status-dot"></span>
+            Online — usually replies instantly
+          </div>
+        </div>
+        <button class="clear-btn" onclick="clearConversation()" title="Clear conversation">&#8635; New chat</button>
+      </div>
+
+      <!-- Messages -->
+      <div class="chat-messages" id="chatMessages">
+        <!-- Messages rendered by app.js -->
+      </div>
+
+      <!-- Input -->
+      <div class="chat-input-area">
+        <div class="input-row">
+          <textarea
+            id="chatInput"
+            placeholder="Ask about our tours, prices, booking..."
+            rows="1"
+            aria-label="Chat message"
+          ></textarea>
+          <button id="sendBtn" aria-label="Send message">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </div>
+        <p class="input-footer">Powered by AI · For complex requests, use the form below</p>
+      </div>
+    </div>
+
+    <!-- ================================================================
+         DIVIDER
+         ================================================================ -->
+    <div class="divider">or send us a message</div>
+
+    <!-- ================================================================
+         CONTACT FORM
+         ================================================================ -->
+    <div class="contact-form-card">
+      <h3>Get in touch</h3>
+      <p>Prefer a personal reply? Fill out the form and we'll get back to you within 24 hours.</p>
+
+      <form id="contactForm" onsubmit="handleFormSubmit(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="firstName">First name</label>
+            <input type="text" id="firstName" name="firstName" placeholder="Maria" required>
+          </div>
+          <div class="form-group">
+            <label for="lastName">Last name</label>
+            <input type="text" id="lastName" name="lastName" placeholder="Santos">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="email">Email address</label>
+            <input type="email" id="email" name="email" placeholder="maria@example.com" required>
+          </div>
+          <div class="form-group">
+            <label for="phone">Phone (optional)</label>
+            <input type="tel" id="phone" name="phone" placeholder="+351 912 345 678">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group full">
+            <label for="tourInterest">Tour of interest</label>
+            <select id="tourInterest" name="tourInterest">
+              <option value="">Select a tour (optional)</option>
+              <option value="classic">Classic Lisbon Tour</option>
+              <option value="hills">7 Hills Tour</option>
+              <option value="sunset">Sunset Tour</option>
+              <option value="private">Private Custom Tour</option>
+              <option value="other">Not sure yet</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group full">
+            <label for="message">Your message</label>
+            <textarea id="message" name="message" placeholder="Tell us about your plans, group size, questions..." required></textarea>
+          </div>
+        </div>
+
+        <button type="submit" class="submit-btn">Send Message</button>
+      </form>
+    </div>
+
+  </main>
+
+  <!-- ================================================================
+       IMAGE LIGHTBOX
+       ================================================================ -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image preview">
+    <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close">✕</button>
+    <img id="lightboxImg" src="" alt="Tour image preview">
+  </div>
+
+  <script src="app.js?v=3"></script>
+  <script>
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      // TODO: Wire up to your actual contact form handler / email service
+      alert("Thanks! We'll be in touch within 24 hours. 🛺");
+      e.target.reset();
+    }
+  </script>
+</body>
+</html>

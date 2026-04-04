@@ -1,0 +1,84 @@
+- generic [ref=e14]:
+  - generic [ref=e19]:
+    - generic [ref=e23]:
+      - option "€ EUR" [selected] [ref=e25]
+      - combobox [ref=e27]
+    - button [ref=e32] [cursor=pointer]:
+      - img [ref=e33]
+  - generic [ref=e38]:
+    - generic [ref=e39]:
+      - heading "Participants" [level=2] [ref=e43]
+      - generic [ref=e46]:
+        - generic [ref=e47]:
+          - paragraph [ref=e48]: "Number of Passengers:"
+          - paragraph [ref=e49]: Age 7 - 99
+        - generic [ref=e50]:
+          - button [ref=e51] [cursor=pointer]:
+            - img [ref=e52]
+          - generic [ref=e54]: "3"
+          - button [active] [ref=e55] [cursor=pointer]:
+            - img [ref=e56]
+    - generic [ref=e514]:
+      - heading "15 April 2026" [level=2] [ref=e518]:
+        - button "15 April 2026" [ref=e519] [cursor=pointer]:
+          - img [ref=e521]
+          - generic [ref=e523]: 15 April 2026
+      - generic [ref=e527]:
+        - generic [ref=e528]:
+          - img [ref=e530]
+          - heading "Choose a time" [level=3] [ref=e533]
+        - generic [ref=e534]:
+          - button "08:30 8:30 am" [ref=e535] [cursor=pointer]:
+            - generic [ref=e536]:
+              - generic [ref=e538]:
+                - img [ref=e540]
+                - paragraph [ref=e543]: 08:30
+              - paragraph [ref=e545]: 8:30 am
+          - button "09:00 9 am" [ref=e546] [cursor=pointer]:
+            - generic [ref=e547]:
+              - generic [ref=e549]:
+                - img [ref=e551]
+                - paragraph [ref=e554]: 09:00
+              - paragraph [ref=e556]: 9 am
+          - button "09:30 9:30 am" [ref=e557] [cursor=pointer]:
+            - generic [ref=e558]:
+              - generic [ref=e560]:
+                - img [ref=e562]
+                - paragraph [ref=e565]: 09:30
+              - paragraph [ref=e567]: 9:30 am
+          - button "10:00 10 am" [ref=e568] [cursor=pointer]:
+            - generic [ref=e569]:
+              - generic [ref=e571]:
+                - img [ref=e573]
+                - paragraph [ref=e576]: 10:00
+              - paragraph [ref=e578]: 10 am
+          - button "10:30 10:30 am" [ref=e579] [cursor=pointer]:
+            - generic [ref=e580]:
+              - generic [ref=e582]:
+                - img [ref=e584]
+                - paragraph [ref=e587]: 10:30
+              - paragraph [ref=e589]: 10:30 am
+        - button "Back to calendar" [ref=e590] [cursor=pointer]:
+          - img [ref=e592]
+          - text: Back to calendar
+    - generic [ref=e266]:
+      - heading "Booking Summary" [level=2] [ref=e270]
+      - generic [ref=e273]:
+        - generic [ref=e275]: Tear here
+        - generic [ref=e276]:
+          - generic [ref=e277]:
+            - heading "Full Day in Lisbon by Tuktuk - The city won't have any secrets to you!" [level=3] [ref=e279]
+            - generic [ref=e282]:
+              - text: "Number of Passengers::"
+              - generic [ref=e594]: 3 x €147.18
+          - generic [ref=e283]:
+            - generic [ref=e284]:
+              - heading "08:30" [level=2] [ref=e595]
+              - paragraph [ref=e597]: 8:30 am
+              - heading "Wed, 15 April 2026" [level=4] [ref=e598]
+            - generic [ref=e289]:
+              - heading "Total:" [level=5] [ref=e291]
+              - generic [ref=e292]: €441.53
+    - button "Checkout" [ref=e297] [cursor=pointer]:
+      - text: Checkout
+      - img [ref=e298]

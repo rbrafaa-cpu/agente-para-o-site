@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Draw Pickup Zone — I Took a Tuk Tuk</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      background: #16213e;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid #0f3460;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e94560;
+    }
+
+    header span {
+      font-size: 13px;
+      color: #888;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+      align-items: center;
+    }
+
+    button {
+      padding: 7px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #btn-undo   { background: #0f3460; color: #eee; }
+    #btn-clear  { background: #3a0a0a; color: #ff6b6b; }
+    #btn-export { background: #e94560; color: #fff; font-weight: 700; }
+
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #map {
+      flex: 1;
+      height: 100%;
+    }
+
+    .sidebar {
+      width: 260px;
+      background: #16213e;
+      border-left: 1px solid #0f3460;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .sidebar-title {
+      padding: 12px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #888;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    #vertex-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+      font-size: 12px;
+      font-family: "SF Mono", "Fira Code", monospace;
+    }
+
+    .vertex-row {
+      padding: 5px 16px;
+      display: flex;
+      justify-content: space-between;
+      color: #aaa;
+      border-bottom: 1px solid #0f3460;
+      gap: 8px;
+    }
+
+    .vertex-row span:first-child {
+      color: #e94560;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .status-bar {
+      padding: 10px 16px;
+      border-top: 1px solid #0f3460;
+      font-size: 12px;
+      color: #888;
+      line-height: 1.5;
+    }
+
+    .status-bar strong {
+      color: #4ecca3;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Pickup Zone Editor</h1>
+  <span>Click on the map to add vertices. Close the polygon when done.</span>
+  <div class="toolbar">
+    <button id="btn-undo">↩ Undo</button>
+    <button id="btn-clear">✕ Clear</button>
+    <button id="btn-export" disabled>⬇ Export JSON</button>
+  </div>
+</header>
+
+<div class="main">
+  <div id="map"></div>
+
+  <div class="sidebar">
+    <div class="sidebar-title">Vertices (<span id="vertex-count">0</span>)</div>
+    <div id="vertex-list"></div>
+    <div class="status-bar" id="status-bar">
+      Click anywhere on the map to place the first vertex.
+    </div>
+  </div>
+</div>
+
+<script>
+  let map, polygon, infoWindow;
+  const vertices = [];
+  const markers  = [];
+
+  function initMap() {
+    map = new google.maps.Map(document.getElementById("map"), {
+      center: { lat: 38.7169, lng: -9.1399 },   // Lisbon centre
+      zoom: 14,
+      mapTypeId: "roadmap",
+      styles: [
+        { elementType: "geometry",        stylers: [{ color: "#242f3e" }] },
+        { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+        { elementType: "labels.text.fill",   stylers: [{ color: "#746855" }] },
+        { featureType: "road",            elementType: "geometry", stylers: [{ color: "#38414e" }] },
+        { featureType: "road",            elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+        { featureType: "road",            elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+        { featureType: "road.highway",    elementType: "geometry", stylers: [{ color: "#746855" }] },
+        { featureType: "road.highway",    elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+        { featureType: "road.highway",    elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
+        { featureType: "water",           elementType: "geometry", stylers: [{ color: "#17263c" }] },
+        { featureType: "water",           elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+        { featureType: "poi",             elementType: "labels", stylers: [{ visibility: "off" }] },
+        { featureType: "transit",         elementType: "geometry", stylers: [{ color: "#2f3948" }] },
+        { featureType: "administrative",  elementType: "geometry.stroke", stylers: [{ color: "#4b6878" }] }
+      ],
+      disableDefaultUI: false,
+      zoomControl: true,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: true,
+    });
+
+    polygon = new google.maps.Polygon({
+      strokeColor:   "#e94560",
+      strokeOpacity: 0.9,
+      strokeWeight:  2.5,
+      fillColor:     "#e94560",
+      fillOpacity:   0.15,
+      editable:      false,
+    });
+    polygon.setMap(map);
+
+    map.addListener("click", (e) => addVertex(e.latLng));
+    updateUI();
+  }
+
+  function addVertex(latLng) {
+    const idx = vertices.length;
+    vertices.push({ lat: latLng.lat(), lng: latLng.lng() });
+
+    const marker = new google.maps.Marker({
+      position: latLng,
+      map,
+      label: {
+        text: String(idx + 1),
+        color: "#fff",
+        fontSize: "11px",
+        fontWeight: "bold",
+      },
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 9,
+        fillColor: "#e94560",
+        fillOpacity: 1,
+        strokeColor: "#fff",
+        strokeWeight: 1.5,
+      },
+      zIndex: 10,
+    });
+    markers.push(marker);
+
+    polygon.setPath(vertices.map(v => ({ lat: v.lat, lng: v.lng })));
+    updateUI();
+  }
+
+  function undo() {
+    if (!vertices.length) return;
+    vertices.pop();
+    const m = markers.pop();
+    m.setMap(null);
+    polygon.setPath(vertices.map(v => ({ lat: v.lat, lng: v.lng })));
+    updateUI();
+  }
+
+  function clear() {
+    vertices.length = 0;
+    markers.forEach(m => m.setMap(null));
+    markers.length = 0;
+    polygon.setPath([]);
+    updateUI();
+  }
+
+  function updateUI() {
+    const count = vertices.length;
+
+    // Vertex count
+    document.getElementById("vertex-count").textContent = count;
+
+    // Vertex list
+    const list = document.getElementById("vertex-list");
+    list.innerHTML = vertices.map((v, i) =>
+      `<div class="vertex-row">
+        <span>#${i + 1}</span>
+        <span>${v.lat.toFixed(6)}, ${v.lng.toFixed(6)}</span>
+      </div>`
+    ).join("");
+    list.scrollTop = list.scrollHeight;
+
+    // Status bar
+    const status = document.getElementById("status-bar");
+    if (count === 0) {
+      status.innerHTML = "Click anywhere on the map to place the first vertex.";
+    } else if (count < 3) {
+      status.innerHTML = `<strong>${count} vertex${count > 1 ? "es" : ""}</strong> — keep clicking to define the zone boundary.`;
+    } else {
+      status.innerHTML = `<strong>${count} vertices</strong> — polygon looks good. Add more points for precision, or <strong>Export JSON</strong> when done.`;
+    }
+
+    // Export button
+    document.getElementById("btn-export").disabled = count < 3;
+  }
+
+  function exportJSON() {
+    const data = { polygon: vertices.map(v => ({ lat: v.lat, lng: v.lng })) };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = "pickup_zone.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById("btn-undo").addEventListener("click", undo);
+  document.getElementById("btn-clear").addEventListener("click", clear);
+  document.getElementById("btn-export").addEventListener("click", exportJSON);
+
+  // Keyboard shortcuts
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "z") { e.preventDefault(); undo(); }
+    if (e.key === "Escape") clear();
+  });
+</script>
+
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDrOsWLkqaf6MerAZSY06ZfIzWqI7GEa4A&callback=initMap"
+  async defer>
+</script>
+
+</body>
+</html>
