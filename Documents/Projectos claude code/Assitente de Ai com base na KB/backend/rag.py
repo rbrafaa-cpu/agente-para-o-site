@@ -344,7 +344,10 @@ def answer(
             context = pricing_context + "\n\n" + context
 
     # Inject pickup zone check when query mentions a location/hotel
-    from pickup_zone import needs_location_check, extract_location, check_zone, build_pickup_context
+    try:
+        from backend.pickup_zone import needs_location_check, extract_location, check_zone, build_pickup_context
+    except ImportError:
+        from pickup_zone import needs_location_check, extract_location, check_zone, build_pickup_context  # type: ignore
     if needs_location_check(query):
         location = extract_location(query)
         if location:
