@@ -136,6 +136,34 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/", response_class=HTMLResponse)
+def demo():
+    base = os.getenv("WIDGET_BASE_URL", "").rstrip("/")
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>I Took a Tuk Tuk — Chat Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {{ font-family: 'Inter', sans-serif; background: #f5f5f4; padding: 2rem 1rem; }}
+    .wrap {{ max-width: 680px; margin: 0 auto; }}
+    h1 {{ font-size: 1.5rem; font-weight: 700; color: #F97415; margin-bottom: 0.25rem; }}
+    p {{ color: #78716c; font-size: 0.9rem; margin-bottom: 2rem; }}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>I Took a Tuk Tuk — AI Assistant</h1>
+    <p>Live preview of the embeddable chat widget.</p>
+    <script src="{base}/widget.js"></script>
+  </div>
+</body>
+</html>"""
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
     # Support both `uvicorn backend.main:app` (from project root)
