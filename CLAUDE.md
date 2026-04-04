@@ -107,6 +107,38 @@ Stitch MCP is installed globally and available via the `stitch` MCP server. Seve
 
 The Stitch MCP tools are prefixed by the MCP server name (e.g., `mcp_stitch:list_projects`). Always run `list_tools` first to discover the exact prefix if unsure.
 
+## Deploying to Railway
+
+The backend runs on Railway, deployed from the GitHub repo `https://github.com/rbrafaa-cpu/agente-para-o-site.git`. The GitHub token is in `.env` as `Github_Token`.
+
+**Critical constraint:** The local git root is the home directory (`~`), not this project folder. This means `git push` from inside the project will push the entire home directory structure to GitHub, which breaks Railway (it sees `Documents/` instead of project files at root).
+
+**Always deploy using the rsync method:**
+
+```bash
+TOKEN=$(grep Github_Token .env | cut -d= -f2)
+
+# 1. Clone the deploy repo fresh
+rm -rf /tmp/deploy-push
+git clone "https://rbrafaa-cpu:${TOKEN}@github.com/rbrafaa-cpu/agente-para-o-site.git" /tmp/deploy-push
+
+# 2. Sync project files to the clone (excludes .env, __pycache__, .tmp)
+rsync -a --exclude='.git' --exclude='.env' --exclude='__pycache__' --exclude='.tmp' \
+  "/Users/rafaelsancheiraborges/Documents/Projectos claude code/Assitente de Ai com base na KB/" \
+  /tmp/deploy-push/
+
+# 3. Commit and push changed files
+cd /tmp/deploy-push
+git add <specific files>
+git commit -m "your message"
+git push "https://rbrafaa-cpu:${TOKEN}@github.com/rbrafaa-cpu/agente-para-o-site.git" main
+```
+
+- Never use `git push deploy main` directly from the project folder — it will push the wrong structure.
+- Never use `git push --force` unless the remote has an irreconcilable structure mismatch (it has happened before when the home-dir git accidentally pushed to the deploy remote).
+- Railway redeploys automatically on every push. No manual trigger needed.
+- After redeploy, users must hard-refresh (`Cmd+Shift+R`) to bypass browser cache on the widget.
+
 ## Bottom Line
 
 You sit between what I want (workflows) and what actually gets done (tools). Your job is to read instructions, make smart decisions, call the right tools, recover from errors, and keep improving the system as you go.
