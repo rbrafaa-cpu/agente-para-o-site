@@ -1,0 +1,145 @@
+{
+  "_notes": {
+    "prices": "Total booking price in EUR (not per person). Prices are per booking for the group size shown.",
+    "seasons": {
+      "standard": "March–October (spring/summer/autumn)",
+      "high": "June–October, groups of 5-6 (4hr tour only)",
+      "winter": "November–February (tuk-tuk tours only; van tours unaffected)"
+    },
+    "capacity": {
+      "tuktuk": "Max 6 passengers per tuk-tuk",
+      "van": "Max 8 passengers per van"
+    },
+    "large_groups": "For groups exceeding vehicle capacity, recommend multiple bookings. Calculate by splitting pax across vehicles to minimise total cost (e.g. 10 pax = 6+4, 7 pax tuk-tuk = two bookings: 4+3 or 6+1).",
+    "fatima_winter": "Fátima tour does not operate in winter (November–February)."
+  },
+  "tours": {
+    "4hr-lisbon": {
+      "name": "True 4Hour Private Tuk Tuk Tour",
+      "vehicle": "tuktuk",
+      "max_per_vehicle": 6,
+      "booking_url": "https://itookatuktuk.com/tuktuktours/lisbon-overview/",
+      "pricing": {
+        "standard": { "1": 243.60, "2": 263.90, "3": 274.05, "4": 284.20, "5": 294.35, "6": 304.50 },
+        "high":     { "1": 243.60, "2": 263.90, "3": 274.05, "4": 284.20, "5": 329.88, "6": 365.40 },
+        "winter":   { "1": 182.70, "2": 182.70, "3": 182.70, "4": 203.00, "5": 203.00, "6": 213.15 }
+      },
+      "season_rules": {
+        "high": "June 1 – October 31 (groups of 5–6 only; 1–4 pax same as standard)",
+        "winter": "November 1 – February 28"
+      }
+    },
+    "fullday-lisbon": {
+      "name": "Full Day in Lisbon by Tuktuk",
+      "vehicle": "tuktuk",
+      "max_per_vehicle": 6,
+      "booking_url": "https://itookatuktuk.com/tuktuktours/discover-lisbons-charm/",
+      "pricing": {
+        "standard": { "1": 406.00, "2": 426.30, "3": 441.53, "4": 446.60, "5": 456.75, "6": 487.20 }
+      },
+      "season_rules": { "note": "No seasonal variation" }
+    },
+    "3hr-medieval-belem": {
+      "name": "3-Hour Medieval Lisbon + Belém",
+      "vehicle": "tuktuk",
+      "max_per_vehicle": 6,
+      "booking_url": "https://itookatuktuk.com/tuktuktours/medieval-belem/",
+      "pricing": {
+        "standard": { "1": 218.23, "2": 228.38, "3": 228.38, "4": 235.48, "5": 238.53, "6": 243.60 }
+      },
+      "season_rules": { "note": "No seasonal variation" }
+    },
+    "3hr-medieval-boho": {
+      "name": "3-Hour Medieval Lisbon + Bohemian Districts",
+      "vehicle": "tuktuk",
+      "max_per_vehicle": 6,
+      "booking_url": "https://itookatuktuk.com/tuktuktours/medieval-bohemian/",
+      "pricing": {
+        "standard": { "1": 218.23, "2": 228.38, "3": 228.38, "4": 235.48, "5": 238.53, "6": 243.60 }
+      },
+      "season_rules": { "note": "No seasonal variation" }
+    },
+    "2hr-belem": {
+      "name": "2-Hour Tuk Tuk Tour of Belém",
+      "vehicle": "tuktuk",
+      "max_per_vehicle": 6,
+      "booking_url": "https://itookatuktuk.com/tuktuktours/discovering-belem/",
+      "pricing": {
+        "standard": { "1": 162.40, "2": 162.40, "3": 167.48, "4": 174.58, "5": 187.78, "6": 188.79 },
+        "winter":   { "1": 101.50, "2": 101.50, "3": 106.58, "4": 113.68, "5": 111.65, "6": 121.80 }
+      },
+      "season_rules": { "winter": "November 1 – February 28" }
+    },
+    "2hr-oldtown": {
+      "name": "2-Hour Tuk Tuk Tour of the Old Town",
+      "vehicle": "tuktuk",
+      "max_per_vehicle": 6,
+      "booking_url": "https://itookatuktuk.com/tuktuktours/medieval-lisbon/",
+      "pricing": {
+        "standard": { "1": 162.40, "2": 162.40, "3": 167.48, "4": 174.58, "5": 187.78, "6": 188.79 },
+        "winter":   { "1": 101.50, "2": 101.50, "3": 106.58, "4": 113.68, "5": 111.65, "6": 121.80 }
+      },
+      "season_rules": { "winter": "November 1 – February 28" }
+    },
+    "1hr-chiado": {
+      "name": "1-Hour Tuk Tuk Tour of Chiado & Bairro Alto",
+      "vehicle": "tuktuk",
+      "max_per_vehicle": 6,
+      "booking_url": "https://itookatuktuk.com/tuktuktours/bohemian-lisbon/",
+      "pricing": {
+        "standard": { "1": 91.35, "2": 91.35, "3": 97.44, "4": 101.50, "5": 111.65, "6": 115.71 }
+      },
+      "season_rules": { "note": "No seasonal variation" }
+    },
+    "sintra": {
+      "name": "Sintra & Cabo da Roca — Private Van Tour",
+      "vehicle": "van",
+      "max_per_vehicle": 8,
+      "booking_url": "https://itookatuktuk.com/tours-de-van/monumental-sintra/",
+      "pricing": {
+        "standard": { "1": 390.78, "2": 406.00, "3": 456.75, "4": 487.20, "5": 507.50, "6": 517.65, "7": 532.88, "8": 568.40 }
+      },
+      "season_rules": { "note": "No seasonal variation" }
+    },
+    "arrabida": {
+      "name": "Arrábida, Setúbal & the Blue Coast — Private Van Tour",
+      "vehicle": "van",
+      "max_per_vehicle": 8,
+      "booking_url": "https://itookatuktuk.com/tours-de-van/arrabida-setubal-and-the-blue-coast/",
+      "pricing": {
+        "standard": { "1": 487.20, "2": 487.20, "3": 532.88, "4": 568.40, "5": 558.25, "6": 578.55, "7": 568.40, "8": 609.00 }
+      },
+      "season_rules": { "note": "No seasonal variation" }
+    },
+    "fatima": {
+      "name": "Fátima & the West Coast of Portugal — Private Van Tour",
+      "vehicle": "van",
+      "max_per_vehicle": 8,
+      "booking_url": "https://itookatuktuk.com/tours-de-van/fatima-the-west-coast/",
+      "pricing": {
+        "standard": { "1": 456.75, "2": 456.75, "3": 487.20, "4": 527.80, "5": 507.50, "6": 548.10, "7": 568.40, "8": 568.40 }
+      },
+      "season_rules": { "note": "No seasonal variation. Does not operate November–February." }
+    },
+    "porto": {
+      "name": "Porto — Private Day Trip from Lisbon",
+      "vehicle": "van",
+      "max_per_vehicle": 8,
+      "booking_url": "https://itookatuktuk.com/tours-de-van/porto-van-trip/",
+      "pricing": {
+        "standard": { "1": 761.25, "2": 761.25, "3": 761.25, "4": 771.40, "5": 786.63, "6": 852.60, "7": 888.13, "8": 893.20 }
+      },
+      "season_rules": { "note": "No seasonal variation" }
+    },
+    "templars": {
+      "name": "Templar Knights Route — Almourol & Tomar",
+      "vehicle": "van",
+      "max_per_vehicle": 8,
+      "booking_url": "https://itookatuktuk.com/tours-de-van/templar-knights-route/",
+      "pricing": {
+        "standard": { "1": 456.75, "2": 487.20, "3": 532.88, "4": 588.70, "5": 583.63, "6": 633.36, "7": 674.98, "8": 690.20 }
+      },
+      "season_rules": { "note": "No seasonal variation" }
+    }
+  }
+}
