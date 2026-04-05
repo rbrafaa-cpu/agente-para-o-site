@@ -33,6 +33,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from PIL import Image
 from pydantic import BaseModel
 import secrets
+from apscheduler.schedulers.background import BackgroundScheduler
 
 load_dotenv()
 
@@ -85,6 +86,44 @@ except ImportError:
     import db as _db  # type: ignore
 
 _db.init_db()
+
+# ---------------------------------------------------------------------------
+# Gmail drafts integration (optional — requires GMAIL_* env vars)
+# ---------------------------------------------------------------------------
+_gmail_drafts = None
+try:
+    try:
+        from backend import gmail_drafts as _gmail_drafts
+    except ImportError:
+        import gmail_drafts as _gmail_drafts  # type: ignore
+except Exception:
+    _gmail_drafts = None  # gracefully disabled if dependencies missing
+
+_scheduler = BackgroundScheduler(daemon=True)
+
+
+@app.on_event("startup")
+async def _start_scheduler():
+    if _gmail_drafts and _gmail_drafts.is_configured():
+        _scheduler.add_job(
+            _gmail_drafts.process_email_queries,
+            "interval",
+            minutes=15,
+            id="email_check",
+            replace_existing=True,
+            misfire_grace_time=300,
+        )
+        _scheduler.start()
+        print("[Email Scheduler] Started — checking inbox every 15 minutes")
+    else:
+        print("[Email Scheduler] Skipped — GMAIL_* credentials not set")
+
+
+@app.on_event("shutdown")
+async def _stop_scheduler():
+    if _scheduler.running:
+        _scheduler.shutdown(wait=False)
+
 
 # ---------------------------------------------------------------------------
 # In-memory session store  {session_id: [{"role": ..., "content": ...}, ...]}
@@ -506,6 +545,38 @@ def export_conversations(_: HTTPBasicCredentials = Depends(require_admin)):
 
 
 # ---------------------------------------------------------------------------
+# Email draft endpoints (admin-protected)
+# ---------------------------------------------------------------------------
+
+@app.post("/process-emails")
+def process_emails(_: HTTPBasicCredentials = Depends(require_admin)):
+    """Manually trigger email query processing and Gmail draft creation."""
+    if not _gmail_drafts:
+        raise HTTPException(
+            status_code=503,
+            detail="Gmail integration unavailable — install google-auth and google-api-python-client",
+        )
+    if not _gmail_drafts.is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Gmail not configured — set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN",
+        )
+    return _gmail_drafts.process_email_queries()
+
+
+@app.get("/email-drafts")
+def get_email_drafts_endpoint(
+    limit: int = 50,
+    offset: int = 0,
+    search: str = "",
+    _: HTTPBasicCredentials = Depends(require_admin),
+):
+    rows = _db.get_email_drafts(limit=limit, offset=offset, search=search)
+    total = _db.get_email_draft_count(search=search)
+    return {"total": total, "drafts": rows}
+
+
+# ---------------------------------------------------------------------------
 # Embeddable widget JS
 # ---------------------------------------------------------------------------
 
@@ -715,6 +786,47 @@ def admin_ui(_: HTTPBasicCredentials = Depends(require_admin)):
       </div>
       <div style="display:flex; gap:0.75rem; margin-top:1rem; align-items:center;">
         <button class="btn secondary" id="convLoadMore" onclick="loadMoreConvs()" style="display:none;">Load more</button>
+      </div>
+    </div>
+
+    <!-- ================================================================
+         EMAIL DRAFTS
+         ================================================================ -->
+    <div class="card">
+      <h2>Email Drafts</h2>
+      <p style="color:#78716c; font-size:0.9rem; margin-bottom:1rem;">
+        Auto-generated draft replies to contact form inquiries from the website.
+        Review and send from
+        <a href="https://mail.google.com/mail/u/0/#drafts" target="_blank"
+           style="color:#F97415;">Gmail Drafts ↗</a>.
+      </p>
+      <div style="display:flex; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap; align-items:center;">
+        <button class="btn" id="checkEmailsBtn" onclick="checkEmails()">Check Emails Now</button>
+        <input id="draftSearch" type="text" placeholder="Search name, email or subject…"
+          style="flex:1; min-width:180px; border:1px solid #e7e5e4; border-radius:10px;
+                 padding:0.55rem 0.9rem; font-family:inherit; font-size:0.875rem;"
+          oninput="debounceDraftSearch()">
+        <span id="draftCount" style="font-size:0.8rem; color:#78716c;"></span>
+      </div>
+      <div id="emailStatus" class="status"></div>
+      <div id="draftsTable" style="overflow-x:auto; margin-top:0.75rem;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+          <thead>
+            <tr style="border-bottom:2px solid #e7e5e4; text-align:left;">
+              <th style="padding:0.5rem 0.6rem; color:#57534e; font-weight:600; white-space:nowrap;">Time</th>
+              <th style="padding:0.5rem 0.6rem; color:#57534e; font-weight:600;">Name</th>
+              <th style="padding:0.5rem 0.6rem; color:#57534e; font-weight:600;">Email</th>
+              <th style="padding:0.5rem 0.6rem; color:#57534e; font-weight:600;">Subject</th>
+              <th style="padding:0.5rem 0.6rem; color:#57534e; font-weight:600;">Message</th>
+              <th style="padding:0.5rem 0.6rem; color:#57534e; font-weight:600;">AI Reply</th>
+              <th style="padding:0.5rem 0.6rem; color:#57534e; font-weight:600;">Drafts</th>
+            </tr>
+          </thead>
+          <tbody id="draftsBody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:1rem;">
+        <button class="btn secondary" id="draftLoadMore" onclick="loadMoreDrafts()" style="display:none;">Load more</button>
       </div>
     </div>
 
@@ -1079,6 +1191,115 @@ def admin_ui(_: HTTPBasicCredentials = Depends(require_admin)):
     }}
 
     loadConvs();
+
+    // ---- Email Drafts ----
+    let draftOffset = 0;
+    const DRAFT_BATCH = 50;
+    let draftSearch = '';
+    let draftTotal = 0;
+    let draftDebounce = null;
+
+    function debounceDraftSearch() {{
+      clearTimeout(draftDebounce);
+      draftDebounce = setTimeout(() => {{
+        draftSearch = document.getElementById('draftSearch').value.trim();
+        draftOffset = 0;
+        document.getElementById('draftsBody').innerHTML = '';
+        loadDrafts();
+      }}, 350);
+    }}
+
+    async function checkEmails() {{
+      const btn = document.getElementById('checkEmailsBtn');
+      const status = document.getElementById('emailStatus');
+      btn.disabled = true;
+      btn.textContent = 'Checking…';
+      status.className = 'status';
+      try {{
+        const res = await fetch('/process-emails', {{ method: 'POST' }});
+        const data = await res.json();
+        if (res.ok) {{
+          const n = data.processed || 0;
+          const errs = data.errors || [];
+          if (n === 0 && errs.length > 0) {{
+            status.textContent = 'Error: ' + errs[0];
+            status.className = 'status error';
+          }} else {{
+            status.textContent = n === 0
+              ? 'No new emails found.'
+              : `✓ Created ${{n}} draft${{n === 1 ? '' : 's'}} — check Gmail Drafts.`;
+            status.className = 'status success';
+            if (n > 0) {{
+              draftOffset = 0;
+              document.getElementById('draftsBody').innerHTML = '';
+              loadDrafts();
+            }}
+          }}
+        }} else {{
+          throw new Error(data.detail || 'Error');
+        }}
+      }} catch(e) {{
+        status.textContent = 'Error: ' + e.message;
+        status.className = 'status error';
+      }} finally {{
+        btn.disabled = false;
+        btn.textContent = 'Check Emails Now';
+      }}
+    }}
+
+    function stripHtml(html) {{
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      return tmp.textContent || tmp.innerText || '';
+    }}
+
+    async function loadDrafts() {{
+      const params = new URLSearchParams({{ limit: DRAFT_BATCH, offset: draftOffset, search: draftSearch }});
+      try {{
+        const res = await fetch('/email-drafts?' + params);
+        if (res.status === 401) {{ document.getElementById('draftCount').textContent = '(auth required — refresh page)'; return; }}
+        const data = await res.json();
+        draftTotal = data.total;
+        const rows = data.drafts || [];
+        const tbody = document.getElementById('draftsBody');
+        rows.forEach(r => {{
+          const ts = new Date(r.created_at).toLocaleString('en-GB', {{dateStyle:'short', timeStyle:'short'}});
+          const aiPreview = stripHtml(r.ai_reply_html || '');
+          const tr = document.createElement('tr');
+          tr.style.borderBottom = '1px solid #f0efee';
+          tr.innerHTML = `
+            <td style="padding:0.5rem 0.6rem; color:#78716c; white-space:nowrap;">${{ts}}</td>
+            <td style="padding:0.5rem 0.6rem; white-space:nowrap;">${{escHtml(r.from_name || '')}}</td>
+            <td style="padding:0.5rem 0.6rem;">
+              <a href="mailto:${{escHtml(r.from_email || '')}}" style="color:#F97415;">
+                ${{escHtml(r.from_email || '')}}
+              </a>
+            </td>
+            <td style="padding:0.5rem 0.6rem; max-width:150px;">
+              ${{escHtml((r.subject || '').slice(0,55))}}${{(r.subject||'').length > 55 ? '…' : ''}}
+            </td>
+            <td style="padding:0.5rem 0.6rem; max-width:180px; color:#57534e;">
+              ${{escHtml((r.customer_message || '').slice(0,80))}}${{(r.customer_message||'').length > 80 ? '…' : ''}}
+            </td>
+            <td style="padding:0.5rem 0.6rem; max-width:200px; color:#57534e; font-style:italic;">
+              ${{escHtml(aiPreview.slice(0,100))}}${{aiPreview.length > 100 ? '…' : ''}}
+            </td>
+            <td style="padding:0.5rem 0.6rem; white-space:nowrap;">
+              <a href="https://mail.google.com/mail/u/0/#drafts" target="_blank"
+                 style="color:#F97415; font-size:0.8rem;">Open Drafts ↗</a>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        }});
+        draftOffset += rows.length;
+        document.getElementById('draftCount').textContent = `${{draftOffset}} / ${{draftTotal}} shown`;
+        document.getElementById('draftLoadMore').style.display = draftOffset < draftTotal ? '' : 'none';
+      }} catch(e) {{ console.error('drafts error', e); }}
+    }}
+
+    function loadMoreDrafts() {{ loadDrafts(); }}
+
+    loadDrafts();
   </script>
 </body>
 </html>"""

@@ -24,7 +24,7 @@ DB_PATH = _DATA_DIR / "conversations.db"
 
 
 def init_db() -> None:
-    """Create the conversations table if it doesn't exist. Call once at startup."""
+    """Create all tables if they don't exist. Call once at startup."""
     _DATA_DIR.mkdir(parents=True, exist_ok=True)
     with _connect() as conn:
         conn.execute("""
@@ -39,6 +39,21 @@ def init_db() -> None:
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_session ON conversations(session_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON conversations(timestamp)")
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS email_drafts (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at          TEXT    NOT NULL,
+                from_name           TEXT    NOT NULL DEFAULT '',
+                from_email          TEXT    NOT NULL DEFAULT '',
+                subject             TEXT    NOT NULL DEFAULT '',
+                customer_message    TEXT    NOT NULL DEFAULT '',
+                ai_reply_html       TEXT    NOT NULL DEFAULT '',
+                gmail_draft_id      TEXT    NOT NULL DEFAULT '',
+                original_email_id   TEXT    NOT NULL DEFAULT ''
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_draft_created ON email_drafts(created_at)")
 
 
 @contextmanager
@@ -113,6 +128,98 @@ def get_conversations(
                 (limit, offset),
             ).fetchall()
     return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Email drafts — Write
+# ---------------------------------------------------------------------------
+
+def log_email_draft(
+    from_name: str,
+    from_email: str,
+    subject: str,
+    customer_message: str,
+    ai_reply_html: str,
+    gmail_draft_id: str,
+    original_email_id: str,
+) -> None:
+    """Persist a single email draft record."""
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO email_drafts
+                (created_at, from_name, from_email, subject, customer_message,
+                 ai_reply_html, gmail_draft_id, original_email_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                datetime.now(timezone.utc).isoformat(),
+                from_name,
+                from_email,
+                subject,
+                customer_message,
+                ai_reply_html,
+                gmail_draft_id,
+                original_email_id,
+            ),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Email drafts — Read
+# ---------------------------------------------------------------------------
+
+def get_email_drafts(
+    limit: int = 50,
+    offset: int = 0,
+    search: str = "",
+) -> list[dict]:
+    """Return email drafts newest-first, optionally filtered by keyword."""
+    with _connect() as conn:
+        if search:
+            like = f"%{search}%"
+            rows = conn.execute(
+                """
+                SELECT id, created_at, from_name, from_email, subject,
+                       customer_message, ai_reply_html, gmail_draft_id, original_email_id
+                FROM email_drafts
+                WHERE from_name LIKE ? OR from_email LIKE ? OR subject LIKE ?
+                   OR customer_message LIKE ?
+                ORDER BY id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (like, like, like, like, limit, offset),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT id, created_at, from_name, from_email, subject,
+                       customer_message, ai_reply_html, gmail_draft_id, original_email_id
+                FROM email_drafts
+                ORDER BY id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_email_draft_count(search: str = "") -> int:
+    """Total number of email draft records (optionally filtered)."""
+    with _connect() as conn:
+        if search:
+            like = f"%{search}%"
+            row = conn.execute(
+                """
+                SELECT COUNT(*) FROM email_drafts
+                WHERE from_name LIKE ? OR from_email LIKE ? OR subject LIKE ?
+                   OR customer_message LIKE ?
+                """,
+                (like, like, like, like),
+            ).fetchone()
+        else:
+            row = conn.execute("SELECT COUNT(*) FROM email_drafts").fetchone()
+    return row[0]
 
 
 def get_conversation_count(search: str = "") -> int:
