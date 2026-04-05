@@ -19,6 +19,7 @@ Prerequisites:
 from __future__ import annotations
 
 import base64
+import html as _html_module
 import logging
 import os
 import re
@@ -110,12 +111,33 @@ def _decode_body_part(part: dict) -> str:
     return base64.urlsafe_b64decode(padded).decode("utf-8", errors="replace")
 
 
+def _strip_html(raw_html: str) -> str:
+    """Strip HTML tags and decode entities, returning plain text with newlines preserved."""
+    # Replace block-level tags with newlines so field labels end up on separate lines
+    text = re.sub(r"<(?:br|p|div|tr|li|h[1-6])[^>]*>", "\n", raw_html, flags=re.IGNORECASE)
+    # Remove remaining tags
+    text = re.sub(r"<[^>]+>", "", text)
+    text = _html_module.unescape(text)
+    # Collapse multiple spaces/tabs on same line, keep newlines
+    text = re.sub(r"[ \t]+", " ", text)
+    # Collapse multiple blank lines
+    text = re.sub(r"\n\s*\n+", "\n", text)
+    return text.strip()
+
+
 def _extract_plain_text(payload: dict) -> str:
-    """Recursively extract plain text from a Gmail message payload."""
+    """
+    Recursively extract plain text from a Gmail message payload.
+    Prefers text/plain; falls back to text/html (tags stripped).
+    """
     mime_type = payload.get("mimeType", "")
 
     if mime_type == "text/plain":
         return _decode_body_part(payload)
+
+    if mime_type == "text/html":
+        raw = _decode_body_part(payload)
+        return _strip_html(raw) if raw.strip() else ""
 
     if mime_type.startswith("multipart/"):
         parts = payload.get("parts", [])
@@ -125,7 +147,7 @@ def _extract_plain_text(payload: dict) -> str:
                 text = _decode_body_part(part)
                 if text.strip():
                     return text
-        # Fall back to recursive extraction
+        # Fall back to recursive extraction (includes text/html fallback)
         for part in parts:
             text = _extract_plain_text(part)
             if text.strip():
