@@ -378,7 +378,7 @@
     el.innerHTML = `
       <div class="tw-wave">🛺</div>
       <div class="tw-welcome-title">I Took a Tuk Tuk</div>
-      <p>Hello! I'm your Lisbon tour guide assistant.<br>Ask me anything about our tours, prices or availability.</p>
+      <p>Hello! I'm your I Took a TukTuk assistant.<br>Ask me anything about our tours, prices or custom services.</p>
     `;
     messagesEl.appendChild(el);
   }
