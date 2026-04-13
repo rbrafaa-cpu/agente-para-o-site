@@ -617,8 +617,13 @@ def gmail_auth_start(request: Request, _: HTTPBasicCredentials = Depends(require
     except ImportError:
         raise HTTPException(status_code=503, detail="google-auth-oauthlib not installed")
 
-    # Derive the callback URL from the incoming request
-    base = str(request.base_url).rstrip("/")
+    # Derive the callback URL — prefer explicit WIDGET_BASE_URL, otherwise use
+    # the request base_url but force https (Railway terminates TLS at the proxy)
+    configured_base = os.getenv("WIDGET_BASE_URL", "").rstrip("/")
+    if configured_base:
+        base = configured_base
+    else:
+        base = str(request.base_url).rstrip("/").replace("http://", "https://")
     redirect_uri = f"{base}/gmail-auth-callback"
 
     state = secrets.token_urlsafe(32)
@@ -980,7 +985,7 @@ def admin_ui(_: HTTPBasicCredentials = Depends(require_admin)):
       </p>
       <div style="background:#fef9c3; border-radius:8px; padding:0.75rem 1rem; font-size:0.82rem; color:#854d0e; margin-bottom:1rem;">
         <strong>One-time setup required:</strong> For this button to work, add
-        <code id="callbackUrl" style="word-break:break-all;">{os.getenv("WIDGET_BASE_URL", "https://&lt;your-railway-url&gt;").rstrip("/")}/gmail-auth-callback</code>
+        <code id="callbackUrl" style="word-break:break-all;">{(os.getenv("WIDGET_BASE_URL", "").rstrip("/") or "https://&lt;your-railway-url&gt;")}/gmail-auth-callback</code>
         as an authorised redirect URI on your OAuth client in
         <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#854d0e;">Google Cloud Console</a>.
         You also need to change (or add) the OAuth client type to <strong>Web application</strong>.
