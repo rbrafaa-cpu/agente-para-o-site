@@ -20,15 +20,16 @@ from __future__ import annotations
 import base64
 import io
 import os
+import re
 import subprocess
 import sys
 import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from PIL import Image
 from pydantic import BaseModel
@@ -577,6 +578,184 @@ def get_email_drafts_endpoint(
 
 
 # ---------------------------------------------------------------------------
+# Gmail OAuth re-authentication (admin-protected)
+# ---------------------------------------------------------------------------
+
+# Short-lived state tokens: {state_token: redirect_uri}
+_gmail_oauth_states: dict[str, str] = {}
+
+_GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+
+
+@app.get("/gmail-auth-test")
+def gmail_auth_test(_: HTTPBasicCredentials = Depends(require_admin)):
+    """Quick connectivity test — tries to get the Gmail profile."""
+    if not _gmail_drafts or not _gmail_drafts.is_configured():
+        return {"ok": False, "detail": "Gmail credentials not configured"}
+    try:
+        service = _gmail_drafts.get_gmail_service()
+        profile = service.users().getProfile(userId="me").execute()
+        return {"ok": True, "email": profile.get("emailAddress", "unknown")}
+    except Exception as e:
+        return {"ok": False, "detail": str(e)}
+
+
+@app.get("/gmail-auth-start")
+def gmail_auth_start(request: Request, _: HTTPBasicCredentials = Depends(require_admin)):
+    """
+    Start the Gmail OAuth re-authentication flow.
+    Redirects the browser to Google's consent screen.
+    After consent, Google redirects to /gmail-auth-callback.
+    """
+    client_id = os.getenv("GMAIL_CLIENT_ID")
+    client_secret = os.getenv("GMAIL_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=503, detail="GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET not set")
+
+    try:
+        from google_auth_oauthlib.flow import Flow
+    except ImportError:
+        raise HTTPException(status_code=503, detail="google-auth-oauthlib not installed")
+
+    # Derive the callback URL from the incoming request
+    base = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base}/gmail-auth-callback"
+
+    state = secrets.token_urlsafe(32)
+    _gmail_oauth_states[state] = redirect_uri
+
+    client_config = {
+        "web": {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": [redirect_uri],
+        }
+    }
+    flow = Flow.from_client_config(client_config, scopes=_GMAIL_SCOPES, redirect_uri=redirect_uri)
+    auth_url, _ = flow.authorization_url(
+        access_type="offline",
+        state=state,
+        prompt="consent",  # Force refresh token to be returned
+        include_granted_scopes="true",
+    )
+    return RedirectResponse(auth_url)
+
+
+@app.get("/gmail-auth-callback")
+def gmail_auth_callback(code: str = "", state: str = "", error: str = ""):
+    """
+    OAuth callback — Google redirects here after the user grants access.
+    Exchanges the authorization code for tokens and saves the refresh token.
+    """
+    if error:
+        return HTMLResponse(
+            f"""<html><body style="font-family:sans-serif;padding:2rem;">
+            <h2 style="color:#dc2626;">Authentication error</h2>
+            <p>{error}</p>
+            <a href="/admin">← Back to Admin</a></body></html>"""
+        )
+
+    if state not in _gmail_oauth_states:
+        return HTMLResponse(
+            """<html><body style="font-family:sans-serif;padding:2rem;">
+            <h2 style="color:#dc2626;">Invalid or expired state</h2>
+            <p>This auth link has already been used or has expired. Please try again from the admin panel.</p>
+            <a href="/admin">← Back to Admin</a></body></html>""",
+            status_code=400,
+        )
+
+    redirect_uri = _gmail_oauth_states.pop(state)
+
+    client_id = os.getenv("GMAIL_CLIENT_ID")
+    client_secret = os.getenv("GMAIL_CLIENT_SECRET")
+
+    try:
+        from google_auth_oauthlib.flow import Flow
+    except ImportError:
+        raise HTTPException(status_code=503, detail="google-auth-oauthlib not installed")
+
+    client_config = {
+        "web": {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": [redirect_uri],
+        }
+    }
+    flow = Flow.from_client_config(client_config, scopes=_GMAIL_SCOPES, redirect_uri=redirect_uri)
+    flow.fetch_token(code=code)
+    creds = flow.credentials
+
+    new_refresh_token = creds.refresh_token
+    if not new_refresh_token:
+        return HTMLResponse(
+            """<html><body style="font-family:sans-serif;padding:2rem;">
+            <h2 style="color:#dc2626;">No refresh token received</h2>
+            <p>Google did not return a refresh token. This can happen if the app was already
+            authorised. Try revoking access at
+            <a href="https://myaccount.google.com/permissions">Google Account Permissions</a>
+            and authenticating again.</p>
+            <a href="/admin">← Back to Admin</a></body></html>""",
+            status_code=400,
+        )
+
+    # Update in-memory env (takes effect immediately)
+    os.environ["GMAIL_REFRESH_TOKEN"] = new_refresh_token
+
+    # Persist to local .env file
+    env_path = Path(__file__).parent.parent / ".env"
+    if env_path.exists():
+        env_text = env_path.read_text(encoding="utf-8")
+        if "GMAIL_REFRESH_TOKEN=" in env_text:
+            env_text = re.sub(
+                r"^GMAIL_REFRESH_TOKEN=.*$",
+                f"GMAIL_REFRESH_TOKEN={new_refresh_token}",
+                env_text,
+                flags=re.MULTILINE,
+            )
+        else:
+            env_text += f"\nGMAIL_REFRESH_TOKEN={new_refresh_token}\n"
+        env_path.write_text(env_text, encoding="utf-8")
+
+    return HTMLResponse(f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gmail Authentication</title>
+  <style>
+    body {{ font-family: 'Inter', sans-serif; background: #f5f5f4; padding: 2rem; color: #1c1917; }}
+    .card {{ background: white; border-radius: 16px; padding: 1.5rem; max-width: 580px; margin: 0 auto;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.08); }}
+    h2 {{ color: #166534; margin-bottom: 0.5rem; }}
+    .token-box {{ background: #f5f5f4; border-radius: 8px; padding: 0.75rem 1rem; font-family: monospace;
+                  font-size: 0.8rem; word-break: break-all; margin: 1rem 0; border: 1px solid #e7e5e4; }}
+    .warning {{ background: #fef9c3; border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.875rem;
+                margin: 1rem 0; color: #854d0e; }}
+    a.btn {{ display: inline-block; background: #F97415; color: white; text-decoration: none;
+             border-radius: 10px; padding: 0.65rem 1.25rem; font-weight: 600; margin-top: 0.75rem; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>✓ Gmail Authentication Successful</h2>
+    <p>The refresh token has been updated in memory and saved to <code>.env</code>.</p>
+    <p><strong>New refresh token:</strong></p>
+    <div class="token-box">{new_refresh_token}</div>
+    <div class="warning">
+      <strong>Action required on Railway:</strong> Copy the token above and update the
+      <code>GMAIL_REFRESH_TOKEN</code> environment variable in your Railway project settings.
+      Otherwise the token will reset on the next deploy.
+    </div>
+    <a class="btn" href="/admin">← Back to Admin</a>
+  </div>
+</body>
+</html>""")
+
+
+# ---------------------------------------------------------------------------
 # Embeddable widget JS
 # ---------------------------------------------------------------------------
 
@@ -787,6 +966,30 @@ def admin_ui(_: HTTPBasicCredentials = Depends(require_admin)):
       <div style="display:flex; gap:0.75rem; margin-top:1rem; align-items:center;">
         <button class="btn secondary" id="convLoadMore" onclick="loadMoreConvs()" style="display:none;">Load more</button>
       </div>
+    </div>
+
+    <!-- ================================================================
+         GMAIL AUTHENTICATION
+         ================================================================ -->
+    <div class="card">
+      <h2>Gmail Authentication</h2>
+      <p style="color:#78716c; font-size:0.9rem; margin-bottom:1rem;">
+        If Gmail is returning a token error, re-authenticate here to get a fresh token.
+        After authorising, copy the new token and update <code>GMAIL_REFRESH_TOKEN</code>
+        in your Railway environment variables.
+      </p>
+      <div style="background:#fef9c3; border-radius:8px; padding:0.75rem 1rem; font-size:0.82rem; color:#854d0e; margin-bottom:1rem;">
+        <strong>One-time setup required:</strong> For this button to work, add
+        <code id="callbackUrl" style="word-break:break-all;">{os.getenv("WIDGET_BASE_URL", "https://&lt;your-railway-url&gt;").rstrip("/")}/gmail-auth-callback</code>
+        as an authorised redirect URI on your OAuth client in
+        <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#854d0e;">Google Cloud Console</a>.
+        You also need to change (or add) the OAuth client type to <strong>Web application</strong>.
+      </div>
+      <div class="actions">
+        <a href="/gmail-auth-start" class="btn">Re-authenticate Gmail</a>
+        <button class="btn secondary" onclick="testGmailConnection()">Test Connection</button>
+      </div>
+      <div id="gmailTestStatus" class="status"></div>
     </div>
 
     <!-- ================================================================
@@ -1300,6 +1503,32 @@ def admin_ui(_: HTTPBasicCredentials = Depends(require_admin)):
     function loadMoreDrafts() {{ loadDrafts(); }}
 
     loadDrafts();
+
+    // ---- Gmail auth test ----
+    async function testGmailConnection() {{
+      const btn = event.target;
+      const status = document.getElementById('gmailTestStatus');
+      btn.disabled = true;
+      btn.textContent = 'Testing…';
+      status.className = 'status';
+      try {{
+        const res = await fetch('/gmail-auth-test');
+        const data = await res.json();
+        if (data.ok) {{
+          status.textContent = '✓ Connected as ' + data.email;
+          status.className = 'status success';
+        }} else {{
+          status.textContent = 'Error: ' + (data.detail || 'Unknown error');
+          status.className = 'status error';
+        }}
+      }} catch(e) {{
+        status.textContent = 'Request failed: ' + e.message;
+        status.className = 'status error';
+      }} finally {{
+        btn.disabled = false;
+        btn.textContent = 'Test Connection';
+      }}
+    }}
   </script>
 </body>
 </html>"""
