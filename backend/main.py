@@ -626,9 +626,6 @@ def gmail_auth_start(request: Request, _: HTTPBasicCredentials = Depends(require
         base = str(request.base_url).rstrip("/").replace("http://", "https://")
     redirect_uri = f"{base}/gmail-auth-callback"
 
-    state = secrets.token_urlsafe(32)
-    _gmail_oauth_states[state] = redirect_uri
-
     client_config = {
         "web": {
             "client_id": client_id,
@@ -639,12 +636,15 @@ def gmail_auth_start(request: Request, _: HTTPBasicCredentials = Depends(require
         }
     }
     flow = Flow.from_client_config(client_config, scopes=_GMAIL_SCOPES, redirect_uri=redirect_uri)
-    auth_url, _ = flow.authorization_url(
+    auth_url, state = flow.authorization_url(
         access_type="offline",
-        state=state,
         prompt="consent",  # Force refresh token to be returned
         include_granted_scopes="true",
     )
+
+    # Store the flow object so the callback can reuse the same session
+    # (preserves PKCE code_verifier and other session state)
+    _gmail_oauth_states[state] = flow
     return RedirectResponse(auth_url)
 
 
@@ -671,26 +671,8 @@ def gmail_auth_callback(request: Request, code: str = "", state: str = "", error
             status_code=400,
         )
 
-    redirect_uri = _gmail_oauth_states.pop(state)
-
-    client_id = os.getenv("GMAIL_CLIENT_ID")
-    client_secret = os.getenv("GMAIL_CLIENT_SECRET")
-
-    try:
-        from google_auth_oauthlib.flow import Flow
-    except ImportError:
-        raise HTTPException(status_code=503, detail="google-auth-oauthlib not installed")
-
-    client_config = {
-        "web": {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [redirect_uri],
-        }
-    }
-    flow = Flow.from_client_config(client_config, scopes=_GMAIL_SCOPES, redirect_uri=redirect_uri)
+    # Reuse the same flow object from the start — it holds the PKCE code_verifier
+    flow = _gmail_oauth_states.pop(state)
 
     try:
         # Pass the full callback URL so the library can extract code + verify state
