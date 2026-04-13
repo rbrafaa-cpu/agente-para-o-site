@@ -649,7 +649,7 @@ def gmail_auth_start(request: Request, _: HTTPBasicCredentials = Depends(require
 
 
 @app.get("/gmail-auth-callback")
-def gmail_auth_callback(code: str = "", state: str = "", error: str = ""):
+def gmail_auth_callback(request: Request, code: str = "", state: str = "", error: str = ""):
     """
     OAuth callback — Google redirects here after the user grants access.
     Exchanges the authorization code for tokens and saves the refresh token.
@@ -691,7 +691,20 @@ def gmail_auth_callback(code: str = "", state: str = "", error: str = ""):
         }
     }
     flow = Flow.from_client_config(client_config, scopes=_GMAIL_SCOPES, redirect_uri=redirect_uri)
-    flow.fetch_token(code=code)
+
+    try:
+        # Pass the full callback URL so the library can extract code + verify state
+        authorization_response = str(request.url).replace("http://", "https://")
+        flow.fetch_token(authorization_response=authorization_response)
+    except Exception as e:
+        return HTMLResponse(
+            f"""<html><body style="font-family:sans-serif;padding:2rem;">
+            <h2 style="color:#dc2626;">Token exchange failed</h2>
+            <pre style="background:#f5f5f4;padding:1rem;border-radius:8px;font-size:0.8rem;white-space:pre-wrap;">{e}</pre>
+            <a href="/admin">← Back to Admin</a></body></html>""",
+            status_code=500,
+        )
+
     creds = flow.credentials
 
     new_refresh_token = creds.refresh_token
