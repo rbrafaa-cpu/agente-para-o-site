@@ -42,6 +42,21 @@ MAX_HISTORY_TURNS = 10
 REASONING_MODEL_PREFIXES = ("openai/gpt-5",)
 REASONING_MAX_TOKENS = 4096
 REASONING_EFFORT = "low"
+
+# finish_reason values that mean the model actually finished. Anything else
+# ("length", "error", "content_filter") means the answer is cut short.
+COMPLETE_FINISH_REASONS = {"stop", "end_turn", None}
+
+# Shown to the client when the model fails to produce a usable answer. Matches
+# the handoff wording in system_prompt.md.
+HANDOFF_MESSAGE = (
+    "I'm not sure about that — I'd recommend reaching out to our team directly "
+    "via the contact form below and a human will get back to you promptly."
+)
+
+
+class IncompleteAnswerError(RuntimeError):
+    """The provider returned an empty, aborted or truncated generation."""
 SYSTEM_PROMPT_PATH = Path(__file__).parent / "config" / "system_prompt.md"
 MODEL_PATH = Path(__file__).parent / "config" / "model.txt"
 
@@ -231,12 +246,31 @@ def call_llm(
     history: list[dict] | None = None,
     model: str | None = None,
 ) -> str:
-    """Build the payload and call the active model via OpenRouter."""
+    """
+    Build the payload and call the active model via OpenRouter.
+
+    Raises IncompleteAnswerError if the provider returns a truncated or empty
+    generation — a provider can answer HTTP 200 with finish_reason "error" and
+    half a sentence, and handing a customer half a price calculation is worse
+    than handing them to a human.
+    """
+    active_model = model or load_model()
     messages = build_messages(system_prompt, context, images, user_query, history)
     response = _get_openrouter().chat.completions.create(
-        **completion_params(model or load_model(), messages)
+        **completion_params(active_model, messages)
     )
-    return response.choices[0].message.content
+
+    choice = response.choices[0]
+    content = (choice.message.content or "").strip()
+    finish = getattr(choice, "finish_reason", None)
+
+    if not content or finish not in COMPLETE_FINISH_REASONS:
+        raise IncompleteAnswerError(
+            f"{active_model} returned an incomplete answer "
+            f"(finish_reason={finish!r}, {len(content)} chars)"
+        )
+
+    return content
 
 
 # ---------------------------------------------------------------------------

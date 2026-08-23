@@ -218,6 +218,11 @@ def chat(req: ChatRequest):
 
     try:
         result = rag.answer(query=req.message, history=history)
+    except rag.IncompleteAnswerError as e:
+        # The model was cut off mid-answer. Hand off to a human rather than
+        # showing the client a partial answer or a server error.
+        print(f"[chat] incomplete answer, handing off: {e}")
+        result = {"answer": rag.HANDOFF_MESSAGE, "images": [], "sources": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

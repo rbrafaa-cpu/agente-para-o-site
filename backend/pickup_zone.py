@@ -51,6 +51,9 @@ def _point_in_polygon(lat: float, lng: float, polygon: list[dict]) -> bool:
 # Location signal detection
 # ---------------------------------------------------------------------------
 
+# A location is only worth geocoding when the query actually names one.
+# A bare "hotel" is not enough — "recommend a hotel there" and "hotel pickup"
+# both contain it without naming anywhere.
 _LOCATION_PATTERNS = [
     r"\bstaying at\b",
     r"\bstay(?:ing)?\s+in\b",
@@ -58,53 +61,70 @@ _LOCATION_PATTERNS = [
     r"\bwe\s+are\s+at\b",
     r"\bbased\s+at\b",
     r"\bour\s+hotel\b",
+    r"\bour\s+hostel\b",
     r"\bour\s+airbnb\b",
     r"\bour\s+apartment\b",
     r"\bour\s+accommodation\b",
     r"\bpick\s*(?:us|me)\s*up\b",
     r"\bcollect\s*(?:us|me)\b",
-    r"\bhotel\b",
-    r"\bhostel\b",
-    r"\bairbnb\b",
-    r"\bapartamento\b",
     r"\brua\s+\w",
     r"\bavenida\s+\w",
     r"\btravessa\s+\w",
+    r"\blargo\s+\w",
+    r"\bpra[cç]a\s+\w",
+    r"\bcal[cç]ada\s+\w",
 ]
+
+# "Hotel Avenida Palace" names a place; "a hotel there" does not. The
+# difference is a proper noun immediately after, so this one runs against the
+# original casing rather than the lowercased query.
+_ACCOMMODATION_PROPER = re.compile(
+    r"\b(?:hotel|hostel|pousada|residencial|guest\s?house)\s+(?=[A-Z0-9])"
+)
 
 
 def needs_location_check(query: str) -> bool:
-    """Return True if the query likely contains a location/address mention."""
+    """Return True if the query actually names a location worth geocoding."""
     q = query.lower()
-    return any(re.search(pat, q) for pat in _LOCATION_PATTERNS)
+    if any(re.search(pat, q) for pat in _LOCATION_PATTERNS):
+        return True
+    return bool(_ACCOMMODATION_PROPER.search(query))
 
 
 # ---------------------------------------------------------------------------
 # Location extraction
 # ---------------------------------------------------------------------------
 
+# Matched against the ORIGINAL casing: "Hotel" plus the proper nouns and
+# Portuguese particles that follow it.
+_PROPER_NAME_RE = re.compile(
+    r"\b((?:Hotel|Hostel|Pousada|Residencial)"
+    r"(?:\s+(?:[A-Z][\w'\-]*|d[aeo]s?|e))+)"
+)
+
+# Every pattern is bounded so a match cannot swallow the whole sentence.
 _EXTRACTION_PATTERNS = [
-    # "staying at [the] <location>"
+    # street addresses — most specific, so they win over the phrasal patterns
+    r"((?:rua|avenida|travessa|largo|pra[cç]a|cal[cç]ada|estrada)"
+    r"\s+[\w'\-]+(?:\s+[\w'\-]+){0,3})",
+    # "<name> Hotel" — at most four words of name
+    r"(?:at|in|from)\s+(?:the\s+)?((?:[\w'\-]+\s+){1,4}hotel)\b",
     r"staying at (?:the )?(.+?)(?:\.|,|\?|$)",
-    # "stay in [the] <location>"
     r"stay(?:ing)?\s+in (?:the )?(.+?)(?:\.|,|\?|$)",
-    # "we're [staying] at [the] <location>"
     r"we['\s]re (?:staying )?at (?:the )?(.+?)(?:\.|,|\?|$)",
-    # "we are [staying] at [the] <location>"
     r"we are (?:staying )?at (?:the )?(.+?)(?:\.|,|\?|$)",
-    # "based at [the] <location>"
     r"based at (?:the )?(.+?)(?:\.|,|\?|$)",
-    # "our hotel/airbnb/apartment is [the] <location>" or "at <location>"
-    r"our (?:hotel|airbnb|apartment|hostel|accommodation) (?:is (?:the )?|at (?:the )?)(.+?)(?:\.|,|\?|$)",
-    # "at [the] <name> Hotel"
-    r"at (?:the )?([a-z0-9 '\-]+ hotel)(?:\s|,|\.|$)",
-    # "[the] <name> Hotel" anywhere
-    r"(?:^|[\s,])(?:the )?([a-z0-9 '\-]+ hotel)(?:\s|,|\.|$)",
-    # "pick us up from [the] <location>"
-    r"pick\s*(?:us|me)\s*up\s+from\s+(?:the )?(.+?)(?:\.|,|\?|$)",
-    # "at Rua/Avenida/Travessa <name>"
-    r"(?:at |in |from )?((?:rua|avenida|travessa|largo|praça|calcada)\s+[a-z0-9 ]+)(?:\.|,|\?|$)",
+    r"our (?:hotel|airbnb|apartment|hostel|accommodation)"
+    r"(?:\s+is)?(?:\s+(?:at|in))?\s+(?:the )?(.+?)(?:\.|,|\?|$)",
+    # "pick us up from/at/in <place>" — not just "from"
+    r"(?:pick\s*(?:us|me)\s*up|collect\s*(?:us|me))"
+    r"\s+(?:from|at|in|near|outside)\s+(?:the )?(.+?)(?:\.|,|\?|$)",
 ]
+
+# Politeness and filler that the geocoder should never see.
+_TRAILING_FILLER = re.compile(
+    r"\s+(?:please|thanks|thank\s+you|ok|okay|cheers)\b.*$", re.IGNORECASE
+)
 
 
 def extract_location(query: str) -> str | None:
@@ -112,18 +132,24 @@ def extract_location(query: str) -> str | None:
     Extract the specific location string from the query.
     Returns the location mention, or the full query as a fallback.
     """
+    # A named accommodation wins outright — it is the most precise signal.
+    m = _PROPER_NAME_RE.search(query)
+    if m:
+        return _TRAILING_FILLER.sub("", m.group(1)).strip()
+
     q_lower = query.lower()
     for pat in _EXTRACTION_PATTERNS:
         m = re.search(pat, q_lower, re.IGNORECASE)
         if m:
-            loc = m.group(1).strip().rstrip(".,?! ")
+            loc = _TRAILING_FILLER.sub("", m.group(1)).strip().rstrip(".,?! ")
             if len(loc) > 3:
                 # Restore original casing from source query
                 start = q_lower.find(loc)
                 if start >= 0:
                     return query[start : start + len(loc)]
                 return loc
-    # Fallback: let the geocoder try the full query
+    # Fallback: let the geocoder try the full query. Safe now that the gate
+    # above only admits queries that genuinely name a place.
     return query
 
 
