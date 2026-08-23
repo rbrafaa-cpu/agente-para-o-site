@@ -34,6 +34,14 @@ PINECONE_INDEX = "tuktuk-kb"
 LLM_MODEL_DEFAULT = "meta-llama/llama-4-scout"
 TOP_K = 5
 MAX_HISTORY_TURNS = 10
+
+# OpenAI reasoning models on OpenRouter reject `temperature`, and bill/consume
+# reasoning tokens out of the completion budget — a 1024 cap can be spent
+# entirely on reasoning, leaving an empty answer. Give them a wider budget and
+# the lowest reasoning effort so latency and cost stay comparable to the others.
+REASONING_MODEL_PREFIXES = ("openai/gpt-5",)
+REASONING_MAX_TOKENS = 4096
+REASONING_EFFORT = "low"
 SYSTEM_PROMPT_PATH = Path(__file__).parent / "config" / "system_prompt.md"
 MODEL_PATH = Path(__file__).parent / "config" / "model.txt"
 
@@ -153,15 +161,15 @@ def load_system_prompt() -> str:
     return "You are a helpful assistant for I Took a Tuk Tuk, a tuk-tuk tour company in Lisbon."
 
 
-def call_llm(
+def build_messages(
     system_prompt: str,
     context: str,
     images: list[str],
     user_query: str,
     history: list[dict] | None = None,
-) -> str:
+) -> list[dict]:
     """
-    Call Llama 4 Scout via OpenRouter.
+    Assemble the OpenRouter chat payload.
 
     - system_prompt: base instructions
     - context: retrieved KB chunks formatted as text
@@ -169,8 +177,6 @@ def call_llm(
     - user_query: current user message
     - history: list of {role, content} dicts (last N turns)
     """
-    client = _get_openrouter()
-
     full_system = (
         f"{system_prompt}\n\n"
         "--- KNOWLEDGE BASE CONTEXT ---\n"
@@ -199,13 +205,37 @@ def call_llm(
     else:
         messages.append({"role": "user", "content": user_query})
 
-    response = client.chat.completions.create(
-        model=load_model(),
-        messages=messages,
-        temperature=0.4,
-        max_tokens=1024,
-    )
+    return messages
 
+
+def completion_params(model: str, messages: list[dict]) -> dict[str, Any]:
+    """Per-model request parameters, accounting for reasoning-model quirks."""
+    params: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": 1024,
+    }
+    if model.startswith(REASONING_MODEL_PREFIXES):
+        params["max_tokens"] = REASONING_MAX_TOKENS
+        params["reasoning_effort"] = REASONING_EFFORT
+    else:
+        params["temperature"] = 0.4
+    return params
+
+
+def call_llm(
+    system_prompt: str,
+    context: str,
+    images: list[str],
+    user_query: str,
+    history: list[dict] | None = None,
+    model: str | None = None,
+) -> str:
+    """Build the payload and call the active model via OpenRouter."""
+    messages = build_messages(system_prompt, context, images, user_query, history)
+    response = _get_openrouter().chat.completions.create(
+        **completion_params(model or load_model(), messages)
+    )
     return response.choices[0].message.content
 
 
@@ -318,19 +348,12 @@ def _needs_pricing(query: str) -> bool:
     return bool(_PRICING_KEYWORDS & words) or bool(_PRODUCT_KEYWORDS & words)
 
 
-def answer(
-    query: str,
-    history: list[dict] | None = None,
-) -> dict:
+def build_request(query: str) -> dict:
     """
-    End-to-end RAG pipeline.
+    Run retrieval and assemble everything the LLM call needs for a query.
 
-    Returns:
-        {
-            "answer": str,
-            "images": [base64_data_uri, ...],
-            "sources": [{"section_title": str, "score": float}, ...]
-        }
+    Shared by the live pipeline and the model benchmark so both exercise the
+    identical prompt. Returns {system_prompt, context, images, chunks}.
     """
     query_vec = embed_query(query)
     chunks = retrieve(query_vec)
@@ -355,14 +378,39 @@ def answer(
             pickup_ctx = build_pickup_context(location, zone_result["status"], zone_result["resolved_address"])
             context = pickup_ctx + "\n\n---\n\n" + context
 
+    return {
+        "system_prompt": system_prompt,
+        "context": context,
+        "images": images,
+        "chunks": chunks,
+    }
+
+
+def answer(
+    query: str,
+    history: list[dict] | None = None,
+) -> dict:
+    """
+    End-to-end RAG pipeline.
+
+    Returns:
+        {
+            "answer": str,
+            "images": [base64_data_uri, ...],
+            "sources": [{"section_title": str, "score": float}, ...]
+        }
+    """
+    req = build_request(query)
+
     llm_answer = call_llm(
-        system_prompt=system_prompt,
-        context=context,
-        images=images,
+        system_prompt=req["system_prompt"],
+        context=req["context"],
+        images=req["images"],
         user_query=query,
         history=history,
     )
 
+    chunks = req["chunks"]
     sources = [
         {"section_title": c.get("section_title", ""), "score": round(c.get("score", 0), 3)}
         for c in chunks
@@ -370,6 +418,6 @@ def answer(
 
     return {
         "answer": llm_answer,
-        "images": images,
+        "images": req["images"],
         "sources": sources,
     }

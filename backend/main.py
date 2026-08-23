@@ -850,6 +850,7 @@ def admin_ui(_: HTTPBasicCredentials = Depends(require_admin)):
       <h2>AI Model</h2>
       <p style="color:#78716c; font-size:0.9rem; margin-bottom:1.25rem;">
         Choose the language model that powers the assistant. Changes take effect on the next message.
+        Per-message costs are measured by <code>tools/benchmark_models.py</code> against the live pipeline, not estimated.
       </p>
 
       <div class="model-grid" id="modelGrid">
@@ -862,8 +863,8 @@ def admin_ui(_: HTTPBasicCredentials = Depends(require_admin)):
               <span class="model-badge free">Free tier</span>
             </div>
             <div class="model-meta">Meta · OpenRouter</div>
-            <div class="model-desc">Fast, multimodal, handles images in context. Current default — great all-round RAG model.</div>
-            <div class="model-pricing">$0.08 in · $0.30 out <span class="per-msg">≈ $0.00025 / msg</span></div>
+            <div class="model-desc">Fast, multimodal, handles images in context. Answered every benchmark question correctly — the best-value fallback.</div>
+            <div class="model-pricing">$0.10 in · $0.30 out <span class="per-msg">$0.00068 / msg measured</span></div>
           </div>
         </label>
 
@@ -876,20 +877,7 @@ def admin_ui(_: HTTPBasicCredentials = Depends(require_admin)):
             </div>
             <div class="model-meta">Google · OpenRouter</div>
             <div class="model-desc">Strong reasoning and context handling. The stable, affordable Gemini chat model.</div>
-            <div class="model-pricing">$0.15 in · $0.60 out <span class="per-msg">≈ $0.00045 / msg</span></div>
-          </div>
-        </label>
-
-        <label class="model-card {'selected' if current_model == 'mistralai/mistral-small-3.1-24b-instruct' else ''}">
-          <input type="radio" name="model" value="mistralai/mistral-small-3.1-24b-instruct" {'checked' if current_model == 'mistralai/mistral-small-3.1-24b-instruct' else ''}>
-          <div class="model-card-inner">
-            <div class="model-header">
-              <span class="model-name">Mistral Small 3.1</span>
-              <span class="model-badge cheap">$</span>
-            </div>
-            <div class="model-meta">Mistral · OpenRouter</div>
-            <div class="model-desc">Excellent at RAG tasks and instruction-following. Multimodal, very affordable, strong European alternative.</div>
-            <div class="model-pricing">$0.35 in · $0.56 out <span class="per-msg">≈ $0.00087 / msg</span></div>
+            <div class="model-pricing">$0.30 in · $2.50 out <span class="per-msg">$0.0018 / msg measured</span></div>
           </div>
         </label>
 
@@ -901,8 +889,21 @@ def admin_ui(_: HTTPBasicCredentials = Depends(require_admin)):
               <span class="model-badge cheap">$</span>
             </div>
             <div class="model-meta">Google · OpenRouter</div>
-            <div class="model-desc">Powers the Gemini app's fast mode. 1M token context, multimodal (text, image, audio, video).</div>
-            <div class="model-pricing">$0.50 in · $3.00 out <span class="per-msg">≈ $0.0019 / msg</span></div>
+            <div class="model-desc">1M token context, multimodal. Caution: in benchmarking it quoted a stale group price by copying the system-prompt example instead of the live pricing table.</div>
+            <div class="model-pricing">$0.50 in · $3.00 out <span class="per-msg">$0.0031 / msg measured</span></div>
+          </div>
+        </label>
+
+        <label class="model-card {'selected' if current_model == 'openai/gpt-5.6-luna' else ''}">
+          <input type="radio" name="model" value="openai/gpt-5.6-luna" {'checked' if current_model == 'openai/gpt-5.6-luna' else ''}>
+          <div class="model-card-inner">
+            <div class="model-header">
+              <span class="model-name">GPT-5.6 Luna</span>
+              <span class="model-badge cheap">$</span>
+            </div>
+            <div class="model-meta">OpenAI · OpenRouter</div>
+            <div class="model-desc">Reasoning model, 1M token context, multimodal. Answered every benchmark question correctly at the lowest measured cost. Drops to ~$0.00026/msg once the prompt cache is warm.</div>
+            <div class="model-pricing">$0.20 in · $1.20 out <span class="per-msg">$0.0013 / msg measured</span></div>
           </div>
         </label>
 
