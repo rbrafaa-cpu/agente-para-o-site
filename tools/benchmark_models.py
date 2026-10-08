@@ -43,6 +43,7 @@ MODELS = [
     "mistralai/mistral-small-3.1-24b-instruct",
     "google/gemini-3-flash-preview",
     "openai/gpt-5.6-luna",
+    "openai/gpt-6-luna",
 ]
 
 # Representative of what the assistant actually gets asked. Each targets a

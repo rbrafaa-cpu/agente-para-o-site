@@ -39,7 +39,10 @@ MAX_HISTORY_TURNS = 10
 # reasoning tokens out of the completion budget — a 1024 cap can be spent
 # entirely on reasoning, leaving an empty answer. Give them a wider budget and
 # the lowest reasoning effort so latency and cost stay comparable to the others.
-REASONING_MODEL_PREFIXES = ("openai/gpt-5",)
+# Matches the OpenAI reasoning families by major version, so a new release
+# (gpt-6, gpt-7, …) is handled without an edit here. A hardcoded "openai/gpt-5"
+# prefix silently sent gpt-6 models a `temperature` they reject.
+REASONING_MODEL_RE = re.compile(r"^openai/gpt-(?:[5-9]|\d{2,})")
 REASONING_MAX_TOKENS = 4096
 REASONING_EFFORT = "low"
 
@@ -230,7 +233,7 @@ def completion_params(model: str, messages: list[dict]) -> dict[str, Any]:
         "messages": messages,
         "max_tokens": 1024,
     }
-    if model.startswith(REASONING_MODEL_PREFIXES):
+    if REASONING_MODEL_RE.match(model):
         params["max_tokens"] = REASONING_MAX_TOKENS
         params["reasoning_effort"] = REASONING_EFFORT
     else:

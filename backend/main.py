@@ -907,8 +907,21 @@ def admin_ui(_: HTTPBasicCredentials = Depends(require_admin)):
               <span class="model-badge cheap">$</span>
             </div>
             <div class="model-meta">OpenAI · OpenRouter</div>
-            <div class="model-desc">Reasoning model, 1M token context, multimodal. Answered every benchmark question correctly at the lowest measured cost. Drops to ~$0.00026/msg once the prompt cache is warm.</div>
-            <div class="model-pricing">$0.20 in · $1.20 out <span class="per-msg">$0.0013 / msg measured</span></div>
+            <div class="model-desc">Reasoning model, 1M token context, multimodal. Answered every benchmark question correctly. Twice the cost of GPT-6 Luna but noticeably quicker — pick it if latency matters more than spend.</div>
+            <div class="model-pricing">$0.20 in · $1.20 out <span class="per-msg">$0.00077 / msg measured</span></div>
+          </div>
+        </label>
+
+        <label class="model-card {'selected' if current_model == 'openai/gpt-6-luna' else ''}">
+          <input type="radio" name="model" value="openai/gpt-6-luna" {'checked' if current_model == 'openai/gpt-6-luna' else ''}>
+          <div class="model-card-inner">
+            <div class="model-header">
+              <span class="model-name">GPT-6 Luna</span>
+              <span class="model-badge free">Best value</span>
+            </div>
+            <div class="model-meta">OpenAI · OpenRouter</div>
+            <div class="model-desc">Reasoning model, 1M token context, multimodal. Matched GPT-5.6 Luna on all eight benchmark questions at half the cost — the cheapest correct option. Spends more time reasoning, so it is a little slower.</div>
+            <div class="model-pricing">$0.10 in · $0.50 out <span class="per-msg">$0.00038 / msg measured</span></div>
           </div>
         </label>
 
