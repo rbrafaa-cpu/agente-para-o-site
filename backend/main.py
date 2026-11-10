@@ -173,7 +173,20 @@ class SaveImagePayload(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    # Live prices depend on Bókun; report whether it answers so a silent
+    # "can't access live pricing" in the chat can be diagnosed from outside.
+    try:
+        from backend import live_pricing as lp
+    except ImportError:
+        import live_pricing as lp  # type: ignore
+    from datetime import date, timedelta
+    try:
+        today = date.today()
+        lp.fetch_availability(lp.TOURS["4hr-lisbon"].bokun_id, today, today + timedelta(days=1))
+        bokun = "ok"
+    except lp.BokunUnavailable as e:
+        bokun = re.sub(r"https?://\S+", "<url>", str(e))[:200]
+    return {"status": "ok", "bokun": bokun}
 
 
 @app.get("/", response_class=HTMLResponse)
