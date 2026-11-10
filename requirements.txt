@@ -1,6 +1,6 @@
 fastapi
 uvicorn[standard]
-google-genai
+google-genai==1.47.0
 pinecone
 openai
 python-dotenv
