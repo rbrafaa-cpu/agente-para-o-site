@@ -280,128 +280,28 @@ def call_llm(
 # Full pipeline
 # ---------------------------------------------------------------------------
 
-import json as _json
-from datetime import date as _date
-
-_PRICING_PATH = Path(__file__).parent / "config" / "pricing.json"
-_pricing_data: dict | None = None
-
-
-def _load_pricing() -> dict:
-    global _pricing_data
-    if _pricing_data is None:
-        with open(_PRICING_PATH, encoding="utf-8") as f:
-            _pricing_data = _json.load(f)
-    return _pricing_data
-
-
-def _current_season(tour_slug: str) -> str:
-    """Determine active season key for a tour based on today's date."""
-    today = _date.today()
-    month = today.month
-    pricing = _load_pricing()["tours"].get(tour_slug, {}).get("pricing", {})
-
-    if "high" in pricing and month in (6, 7, 8, 9, 10):
-        return "high"
-    if "winter" in pricing and month in (11, 12, 1, 2):
-        return "winter"
-    return "standard"
-
-
-def _price_for(tour_slug: str, pax: int, season: str | None = None) -> float | None:
-    """Return total booking price for pax passengers on a tour."""
-    pricing = _load_pricing()["tours"].get(tour_slug, {}).get("pricing", {})
-    if not season:
-        season = _current_season(tour_slug)
-    tier = pricing.get(season) or pricing.get("standard", {})
-    # Find exact match or closest lower key
-    key = str(pax)
-    if key in tier:
-        return tier[key]
-    # Fall back to highest available if pax exceeds table
-    available = sorted(int(k) for k in tier)
-    if pax > max(available):
-        return tier[str(max(available))]
-    return None
-
-
-def _build_pricing_context() -> str:
-    """Format all tour pricing as a context block for the LLM."""
-    data = _load_pricing()
-    today = _date.today()
-    month = today.month
-    lines = [
-        "--- TOUR PRICING (total booking price in EUR, not per person) ---",
-        f"Today: {today.isoformat()}  |  Current month: {month}",
-        "",
-        "IMPORTANT RULES:",
-        "- Prices are TOTAL per booking (for the whole group), not per person.",
-        "- Max 6 passengers per tuk-tuk booking. Max 8 passengers per van booking.",
-        "- For groups larger than one vehicle: recommend MULTIPLE bookings and calculate",
-        "  the total by splitting the group to minimise cost.",
-        "  Example: 10 pax on 4hr tour = one booking for 6 (€304.50) + one for 4 (€284.20) = €588.70 total.",
-        "  Example: 7 pax on 4hr tour = one booking for 4 (€284.20) + one for 3 (€274.05) = €558.25 total.",
-        "- Fátima tour does not operate November–February.",
-        "",
-    ]
-
-    for slug, tour in data["tours"].items():
-        season = _current_season(slug)
-        pricing = tour["pricing"]
-        tier = pricing.get(season) or pricing.get("standard", {})
-        season_note = ""
-        if season == "winter":
-            season_note = " [WINTER PRICES — Nov–Feb]"
-        elif season == "high":
-            season_note = " [HIGH SEASON — Jun–Oct]"
-
-        pax_prices = " | ".join(
-            f"{k} pax: €{v:.2f}" for k, v in sorted(tier.items(), key=lambda x: int(x[0]))
-        )
-        lines.append(f"• {tour['name']}{season_note}")
-        lines.append(f"  {pax_prices}")
-        lines.append(f"  Book: [Book here]({tour['booking_url']})")
-        lines.append("")
-
-    lines.append("--- END PRICING ---")
-    return "\n".join(lines)
-
-
-_PRICING_KEYWORDS = {
-    "price", "prices", "pricing", "cost", "costs", "how much", "rate", "rates",
-    "fee", "fees", "cheap", "expensive", "afford", "euro", "eur", "€",
-    "charge", "charges", "pay", "paying", "paid", "person", "people", "group",
-    "passenger", "passengers", "pax",
-}
-_PRODUCT_KEYWORDS = {
-    "tour", "tours", "trip", "trips", "experience", "experiences",
-    "book", "booking", "reserve", "offer", "option", "options",
-}
-
-
-def _needs_pricing(query: str) -> bool:
-    q = query.lower()
-    words = set(re.findall(r"\w+", q))
-    return bool(_PRICING_KEYWORDS & words) or bool(_PRODUCT_KEYWORDS & words)
-
-
-def build_request(query: str) -> dict:
+def build_request(query: str, history: list[dict] | None = None) -> dict:
     """
     Run retrieval and assemble everything the LLM call needs for a query.
 
     Shared by the live pipeline and the model benchmark so both exercise the
-    identical prompt. Returns {system_prompt, context, images, chunks}.
+    identical prompt. `history` lets the price lookup carry tour, date and
+    group size over from earlier messages. Returns
+    {system_prompt, context, images, chunks}.
     """
     query_vec = embed_query(query)
     chunks = retrieve(query_vec)
     context, images = build_context(chunks)
     system_prompt = load_system_prompt()
 
-    # Inject pricing context when query is pricing/product related
-    if _needs_pricing(query):
-        pricing_context = _build_pricing_context()
-        if pricing_context:
-            context = pricing_context + "\n\n" + context
+    # Live Bókun prices and availability. This is the only source of prices:
+    # there is no local table, and on a Bókun failure the block tells the
+    # model to quote nothing.
+    try:
+        from backend.live_pricing import live_context_for
+    except ImportError:
+        from live_pricing import live_context_for  # type: ignore
+    context = live_context_for(query, history) + "\n\n" + context
 
     # Inject pickup zone check when query mentions a location/hotel
     try:
@@ -437,7 +337,7 @@ def answer(
             "sources": [{"section_title": str, "score": float}, ...]
         }
     """
-    req = build_request(query)
+    req = build_request(query, history)
 
     llm_answer = call_llm(
         system_prompt=req["system_prompt"],
