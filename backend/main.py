@@ -273,21 +273,21 @@ def get_model():
 
 
 @app.put("/model")
-def put_model(payload: ModelPayload):
+def put_model(payload: ModelPayload, _: HTTPBasicCredentials = Depends(require_admin)):
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     MODEL_PATH.write_text(payload.model.strip(), encoding="utf-8")
     return {"status": "saved", "model": payload.model.strip()}
 
 
 @app.put("/system-prompt")
-def put_system_prompt(payload: SystemPromptPayload):
+def put_system_prompt(payload: SystemPromptPayload, _: HTTPBasicCredentials = Depends(require_admin)):
     SYSTEM_PROMPT_PATH.parent.mkdir(parents=True, exist_ok=True)
     SYSTEM_PROMPT_PATH.write_text(payload.prompt, encoding="utf-8")
     return {"status": "saved"}
 
 
 @app.post("/update-kb")
-def update_kb():
+def update_kb(_: HTTPBasicCredentials = Depends(require_admin)):
     """Trigger a full knowledge base re-embedding (runs update_kb.py as subprocess)."""
     if not UPDATE_KB_SCRIPT.exists():
         raise HTTPException(status_code=500, detail="update_kb.py not found")
@@ -309,7 +309,7 @@ def update_kb():
 
 
 @app.post("/upload-kb")
-async def upload_kb(file: UploadFile = File(...)):
+async def upload_kb(file: UploadFile = File(...), _: HTTPBasicCredentials = Depends(require_admin)):
     """
     Upload a new .docx knowledge base file, replace the existing one,
     then trigger a full re-embedding.
@@ -381,7 +381,7 @@ def _gemini_client():
 # ---------------------------------------------------------------------------
 
 @app.post("/caption-image")
-async def caption_image(file: UploadFile = File(...)):
+async def caption_image(file: UploadFile = File(...), _: HTTPBasicCredentials = Depends(require_admin)):
     """Send image to a vision model via OpenRouter and return an auto-generated caption."""
     raw = await file.read()
     content_type = file.content_type or "image/jpeg"
@@ -424,7 +424,7 @@ async def caption_image(file: UploadFile = File(...)):
 
 
 @app.post("/save-image")
-async def save_image(payload: SaveImagePayload):
+async def save_image(payload: SaveImagePayload, _: HTTPBasicCredentials = Depends(require_admin)):
     """Embed caption and upsert image + caption into Pinecone."""
     caption = payload.caption.strip()
     image_b64 = payload.image_b64
@@ -526,7 +526,7 @@ def list_images():
 
 
 @app.delete("/image/{image_id}")
-def delete_image(image_id: str):
+def delete_image(image_id: str, _: HTTPBasicCredentials = Depends(require_admin)):
     """Remove a manually added image from Pinecone."""
     _pinecone_index().delete(ids=[image_id])
     return {"status": "deleted", "id": image_id}
